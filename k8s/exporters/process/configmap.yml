@@ -1,0 +1,76 @@
+# k8s/exporters/process/configmap.yml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: process-exporter-config
+  labels:
+    app.kubernetes.io/name: process-exporter
+    app.kubernetes.io/component: process-metrics
+
+data:
+  process-exporter.yml: |
+    process_names:
+      - name: vllm
+        cmdline:
+          - '.*[v]llm.*'
+
+      - name: python
+        comm:
+          - python
+          - python3
+
+      - name: kubelet
+        comm:
+          - kubelet
+
+      - name: kube-apiserver
+        comm:
+          - kube-apiserver
+
+      - name: kube-controller-manager
+        comm:
+          - kube-controller-manager
+
+      - name: kube-scheduler
+        comm:
+          - kube-scheduler
+
+      - name: kube-proxy
+        comm:
+          - kube-proxy
+
+      - name: container-runtime
+        comm:
+          - containerd
+          - dockerd
+          - docker
+
+      - name: ssh
+        comm:
+          - sshd
+          - ssh
+
+      - name: shell
+        comm:
+          - bash
+          - zsh
+          - sh
+
+      - name: database
+        comm:
+          - postgres
+          - mysqld
+          - redis-server
+
+      - name: prometheus
+        comm:
+          - prometheus
+
+      - name: grafana
+        comm:
+          - grafana
+          - grafana-server
+
+      - name: '{{.Comm}}'
+        cmdline:
+          - '.+'

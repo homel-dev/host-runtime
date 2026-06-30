@@ -1,0 +1,86 @@
+# k8s/exporters/process/daemonset.yml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: process-exporter
+  labels:
+    app.kubernetes.io/name: process-exporter
+    app.kubernetes.io/component: process-metrics
+
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: process-exporter
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: process-exporter
+        app.kubernetes.io/component: process-metrics
+
+    spec:
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+
+      tolerations:
+        - operator: Exists
+
+      containers:
+        - name: process-exporter
+          image: ncabatoff/process-exporter:0.8.7
+          imagePullPolicy: IfNotPresent
+
+          args:
+            - --procfs=/host/proc
+            - --config.path=/config/process-exporter.yml
+            - --web.listen-address=:9256
+
+          ports:
+            - name: metrics
+              containerPort: 9256
+              hostPort: 9256
+
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+
+            - name: config
+              mountPath: /config
+              readOnly: true
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+
+        - name: config
+          configMap:
+            name: process-exporter-config

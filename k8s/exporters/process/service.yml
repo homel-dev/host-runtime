@@ -1,0 +1,18 @@
+# k8s/exporters/process/service.yml
+apiVersion: v1
+kind: Service
+metadata:
+  name: process-exporter
+  labels:
+    app.kubernetes.io/name: process-exporter
+    app.kubernetes.io/component: process-metrics
+
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: process-exporter
+
+  ports:
+    - name: metrics
+      port: 9256
+      targetPort: metrics

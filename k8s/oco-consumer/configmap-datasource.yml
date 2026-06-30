@@ -1,0 +1,19 @@
+# k8s/oco-consumer/configmap-datasource.yml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: host-runtime-datasource
+  labels:
+    grafana_datasource: "1"
+
+data:
+  host-runtime-datasource.yml: |
+    apiVersion: 1
+    datasources:
+      - name: host-runtime-prometheus
+        uid: host-runtime-prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus.host-runtime.svc.cluster.local:9090
+        isDefault: false
+        editable: false

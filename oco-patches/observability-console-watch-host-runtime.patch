@@ -1,0 +1,22 @@
+diff --git a/k8s/grafana/deployment.yml b/k8s/grafana/deployment.yml
+index 12a2a3d..7e092c7 100644
+--- a/k8s/grafana/deployment.yml
++++ b/k8s/grafana/deployment.yml
+@@ -83,7 +83,7 @@ spec:
+             - name: FOLDER
+               value: /etc/grafana/provisioning/datasources
+             - name: NAMESPACE
+-              value: llm-runtime        # watched-namespace set — append each onboarded consumer
++              value: llm-runtime,host-runtime
+           volumeMounts:
+             - name: datasources
+               mountPath: /etc/grafana/provisioning/datasources
+@@ -101,7 +101,7 @@ spec:
+             - name: FOLDER
+               value: /var/lib/grafana/dashboards
+             - name: NAMESPACE
+-              value: llm-runtime
++              value: llm-runtime,host-runtime
+           volumeMounts:
+             - name: dashboards
+               mountPath: /var/lib/grafana/dashboards

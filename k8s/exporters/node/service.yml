@@ -1,0 +1,18 @@
+# k8s/exporters/node/service.yml
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-exporter
+  labels:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/component: host-metrics
+
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: node-exporter
+
+  ports:
+    - name: metrics
+      port: 9100
+      targetPort: metrics

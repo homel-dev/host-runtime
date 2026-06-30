@@ -1,0 +1,8 @@
+# k8s/namespace.yml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: host-runtime
+  labels:
+    app.kubernetes.io/name: host-runtime
+    app.kubernetes.io/part-of: host-runtime

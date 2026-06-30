@@ -1,0 +1,87 @@
+# Taskfile.yml
+version: "3"
+
+tasks:
+
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  deploy:
+    desc: Deploy host-runtime collectors, Prometheus, and OCO consumer contract
+    cmds:
+      - kubectl apply -k k8s
+
+  delete:
+    desc: Delete host-runtime
+    cmds:
+      - kubectl delete -k k8s
+
+  status:
+    desc: Show host-runtime resources
+    cmds:
+      - kubectl -n host-runtime get pods,ds,deploy,svc,configmap,role,rolebinding
+
+  events:
+    desc: Show host-runtime namespace events
+    cmds:
+      - kubectl -n host-runtime get events --sort-by=.lastTimestamp
+
+  logs-prometheus:
+    desc: Follow Prometheus logs
+    cmds:
+      - kubectl -n host-runtime logs deploy/prometheus -f
+
+  logs-node-exporter:
+    desc: Follow node-exporter logs from all pods
+    cmds:
+      - kubectl -n host-runtime logs ds/node-exporter -f
+
+  logs-process-exporter:
+    desc: Follow process-exporter logs from all pods
+    cmds:
+      - kubectl -n host-runtime logs ds/process-exporter -f
+
+  targets:
+    desc: Show Prometheus target state through cluster DNS
+    cmds:
+      - >
+        kubectl -n host-runtime run host-runtime-curl-targets
+        --rm -i --restart=Never --image=curlimages/curl:8.10.1 --quiet
+        --command -- curl -fsS http://prometheus.host-runtime.svc.cluster.local:9090/api/v1/targets
+
+  up:
+    desc: Query Prometheus up metric for host-runtime scrape jobs through cluster DNS
+    cmds:
+      - >
+        kubectl -n host-runtime run host-runtime-curl-up
+        --rm -i --restart=Never --image=curlimages/curl:8.10.1 --quiet
+        --command -- curl -G -fsS http://prometheus.host-runtime.svc.cluster.local:9090/api/v1/query
+        --data-urlencode 'query=up{job=~"node-exporter|process-exporter|prometheus"}'
+
+  node-metrics:
+    desc: Fetch node-exporter metrics through cluster DNS
+    cmds:
+      - >
+        kubectl -n host-runtime run host-runtime-curl-node
+        --rm -i --restart=Never --image=curlimages/curl:8.10.1 --quiet
+        --command -- curl -fsS http://node-exporter.host-runtime.svc.cluster.local:9100/metrics
+
+  process-metrics:
+    desc: Fetch process-exporter metrics through cluster DNS
+    cmds:
+      - >
+        kubectl -n host-runtime run host-runtime-curl-process
+        --rm -i --restart=Never --image=curlimages/curl:8.10.1 --quiet
+        --command -- curl -fsS http://process-exporter.host-runtime.svc.cluster.local:9256/metrics
+
+  oco-contract:
+    desc: Apply only OCO consumer ConfigMaps and RBAC in host-runtime namespace
+    cmds:
+      - kubectl apply -k k8s/oco-consumer
+
+  oco-status:
+    desc: Show OCO consumer contract resources in host-runtime namespace
+    cmds:
+      - kubectl -n host-runtime get configmap,role,rolebinding
