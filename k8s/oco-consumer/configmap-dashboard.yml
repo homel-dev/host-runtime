@@ -1681,7 +1681,7 @@ data:
           },
           "targets": [
             {
-              "expr": "up{job=~\"node-exporter|process-exporter|prometheus\"}",
+              "expr": "up{job=~\"node-exporter|process-exporter|prometheus|minio\"}",
               "refId": "A",
               "format": "table",
               "instant": true

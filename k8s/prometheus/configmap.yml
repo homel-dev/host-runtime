@@ -37,3 +37,13 @@ data:
             labels:
               subsystem: host-runtime
               exporter: process
+
+      - job_name: minio
+        scrape_interval: 60s
+        metrics_path: /minio/metrics/v3
+        static_configs:
+          - targets:
+              - minio.host-runtime.svc.cluster.local:9000
+            labels:
+              subsystem: host-runtime
+              exporter: minio

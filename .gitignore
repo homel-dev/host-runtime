@@ -1,0 +1,21 @@
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*.secret.yml
+*.secret.yaml
+*.license
+minio.license
+
+# Kubernetes/local tooling output
+.kube/
+*.kubeconfig
+rendered*.yml
+rendered*.yaml
+
+# Editor/OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo

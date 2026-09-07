@@ -36,7 +36,7 @@ llm-runtime,host-runtime
 
 ```bash
 # in host-runtime repo
-task host-runtime:deploy
+task deploy
 
 # in oco repo
 git apply /path/to/host-runtime/oco-patches/observability-console-watch-host-runtime.patch

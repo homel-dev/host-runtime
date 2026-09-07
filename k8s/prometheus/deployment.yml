@@ -76,4 +76,5 @@ spec:
             name: prometheus-config
 
         - name: data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: prometheus-data

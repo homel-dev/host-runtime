@@ -31,4 +31,18 @@ Primary dashboards use:
 - `namedprocess_namegroup_thread_count`
 - `namedprocess_namegroup_open_filedesc`
 
+Configured process-group matchers are telemetry categories only. They do not imply that Host Runtime deploys the matched applications.
+
 No swap panels are included.
+
+## MinIO
+
+Host Runtime Prometheus scrapes MinIO metrics v3 at:
+
+```text
+http://minio.host-runtime.svc.cluster.local:9000/minio/metrics/v3
+```
+
+The MinIO service is ClusterIP-only. Metrics authentication is configured as `public` for this internal service so Prometheus does not require root credentials or an administrative bearer token.
+
+If the S3 endpoint is exposed outside the cluster or stricter network isolation is introduced, switch metrics scraping to a dedicated least-privilege MinIO Prometheus credential/token.

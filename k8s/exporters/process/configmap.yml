@@ -66,6 +66,10 @@ data:
         comm:
           - prometheus
 
+      - name: minio
+        comm:
+          - minio
+
       - name: grafana
         comm:
           - grafana

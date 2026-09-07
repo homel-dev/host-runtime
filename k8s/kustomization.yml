@@ -8,6 +8,7 @@ resources:
   - namespace.yml
 
   - prometheus/configmap.yml
+  - prometheus/pvc.yml
   - prometheus/deployment.yml
   - prometheus/service.yml
 
@@ -17,6 +18,9 @@ resources:
   - exporters/process/configmap.yml
   - exporters/process/daemonset.yml
   - exporters/process/service.yml
+
+  - minio/statefulset.yml
+  - minio/service.yml
 
   - oco-consumer/configmap-datasource.yml
   - oco-consumer/configmap-dashboard.yml

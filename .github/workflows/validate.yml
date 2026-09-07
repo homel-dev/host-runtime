@@ -1,0 +1,32 @@
+name: validate
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.36.4
+
+      - name: Render manifests
+        run: |
+          kubectl kustomize k8s >/tmp/host-runtime.yaml
+          kubectl kustomize k8s/oco-consumer >/tmp/oco-consumer.yaml
+
+      - name: Reject committed Kubernetes Secrets
+        run: |
+          if grep -R --line-number --include='*.yml' --include='*.yaml' '^kind: Secret$' .; then
+            echo 'Do not commit Kubernetes Secret manifests. Create secrets at deploy time.' >&2
+            exit 1
+          fi

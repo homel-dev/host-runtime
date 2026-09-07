@@ -8,20 +8,40 @@ tasks:
     cmds:
       - task --list
 
+  validate:
+    desc: Render Kubernetes manifests with Kustomize
+    cmds:
+      - kubectl kustomize k8s >/dev/null
+      - kubectl kustomize k8s/oco-consumer >/dev/null
+
   deploy:
-    desc: Deploy host-runtime collectors, Prometheus, and OCO consumer contract
+    desc: Deploy host-runtime telemetry, object storage, and OCO consumer contract
+    preconditions:
+      - sh: kubectl -n host-runtime get secret minio-bootstrap >/dev/null 2>&1
+        msg: "MinIO bootstrap secret is missing; set MINIO_ROOT_USER, MINIO_ROOT_PASSWORD, MINIO_LICENSE_FILE and run: task minio:bootstrap-secret"
     cmds:
       - kubectl apply -k k8s
 
   delete:
-    desc: Delete host-runtime
+    desc: Delete host-runtime workloads/configuration while retaining namespace, data PVCs, and MinIO bootstrap Secret
     cmds:
-      - kubectl delete -k k8s
+      - >
+        kubectl -n host-runtime delete
+        deployment,daemonset,statefulset,service,configmap,role,rolebinding
+        -l app.kubernetes.io/part-of=host-runtime --ignore-not-found
+
+  purge:
+    desc: Destructively delete the host-runtime namespace, including MinIO data and bootstrap credentials
+    preconditions:
+      - sh: test "${HOST_RUNTIME_PURGE:-}" = "YES"
+        msg: "Destructive operation: set HOST_RUNTIME_PURGE=YES to delete the host-runtime namespace and all MinIO data"
+    cmds:
+      - kubectl delete namespace host-runtime --ignore-not-found
 
   status:
     desc: Show host-runtime resources
     cmds:
-      - kubectl -n host-runtime get pods,ds,deploy,svc,configmap,role,rolebinding
+      - kubectl -n host-runtime get pods,ds,statefulset,deploy,svc,pvc,configmap,role,rolebinding
 
   events:
     desc: Show host-runtime namespace events
@@ -58,7 +78,7 @@ tasks:
         kubectl -n host-runtime run host-runtime-curl-up
         --rm -i --restart=Never --image=curlimages/curl:8.10.1 --quiet
         --command -- curl -G -fsS http://prometheus.host-runtime.svc.cluster.local:9090/api/v1/query
-        --data-urlencode 'query=up{job=~"node-exporter|process-exporter|prometheus"}'
+        --data-urlencode 'query=up{job=~"node-exporter|process-exporter|prometheus|minio"}'
 
   node-metrics:
     desc: Fetch node-exporter metrics through cluster DNS
@@ -75,6 +95,51 @@ tasks:
         kubectl -n host-runtime run host-runtime-curl-process
         --rm -i --restart=Never --image=curlimages/curl:8.10.1 --quiet
         --command -- curl -fsS http://process-exporter.host-runtime.svc.cluster.local:9256/metrics
+
+  minio:bootstrap-secret:
+    desc: Create or update the MinIO root-credential and AIStor license Secret
+    preconditions:
+      - sh: test -n "${MINIO_ROOT_USER:-}"
+        msg: "MINIO_ROOT_USER is required"
+      - sh: test -n "${MINIO_ROOT_PASSWORD:-}"
+        msg: "MINIO_ROOT_PASSWORD is required"
+      - sh: test -n "${MINIO_LICENSE_FILE:-}" && test -f "$MINIO_LICENSE_FILE"
+        msg: "MINIO_LICENSE_FILE must point to an existing AIStor license file"
+    cmds:
+      - kubectl get namespace host-runtime >/dev/null 2>&1 || kubectl create namespace host-runtime
+      - >
+        kubectl -n host-runtime create secret generic minio-bootstrap
+        --from-literal=root-user="$MINIO_ROOT_USER"
+        --from-literal=root-password="$MINIO_ROOT_PASSWORD"
+        --from-file=minio.license="$MINIO_LICENSE_FILE"
+        --dry-run=client -o yaml | kubectl apply -f -
+      - |
+        if kubectl -n host-runtime get statefulset/minio >/dev/null 2>&1; then
+          kubectl -n host-runtime rollout restart statefulset/minio
+        fi
+
+  minio:status:
+    desc: Show MinIO StatefulSet, pod, services, and persistent volume claim
+    cmds:
+      - kubectl -n host-runtime get statefulset/minio
+      - kubectl -n host-runtime get pod -l app.kubernetes.io/name=minio
+      - kubectl -n host-runtime get svc/minio-headless svc/minio svc/minio-console
+      - kubectl -n host-runtime get pvc -l app.kubernetes.io/name=minio
+
+  minio:logs:
+    desc: Follow MinIO logs
+    cmds:
+      - kubectl -n host-runtime logs statefulset/minio -f
+
+  minio:console:
+    desc: Port-forward the MinIO Console to localhost:9001
+    cmds:
+      - kubectl -n host-runtime port-forward svc/minio-console 9001:9001
+
+  minio:api:
+    desc: Port-forward the MinIO S3 API to localhost:9000
+    cmds:
+      - kubectl -n host-runtime port-forward svc/minio 9000:9000
 
   oco-contract:
     desc: Apply only OCO consumer ConfigMaps and RBAC in host-runtime namespace
