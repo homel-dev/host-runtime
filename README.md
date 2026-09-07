@@ -38,16 +38,15 @@ MinIO is a shared platform service. Consumer buckets and credentials belong to t
 
 ## Deploy
 
-Create the MinIO bootstrap Secret first:
+For an isolated local/lab deployment, put the AIStor license at `./minio.license` and start MinIO:
 
 ```bash
-export MINIO_ROOT_USER='replace-with-a-long-random-access-key'
-export MINIO_ROOT_PASSWORD='replace-with-a-long-random-secret-key'
-export MINIO_LICENSE_FILE='/absolute/path/to/minio.license'
-task minio:bootstrap-secret
+task minio:start
 ```
 
-Deploy Host Runtime:
+On the first run the task automatically creates local `minio.env` from the committed `minio.env.example`. Both `minio.env` and `minio.license` are ignored by Git. The example credentials are `minioadmin` / `minioadmin-change-me`; edit `minio.env` before using MinIO outside an isolated local environment. No shell exports are required.
+
+Or deploy the complete Host Runtime; this automatically creates/updates the MinIO bootstrap Secret from `minio.env` before applying the manifests:
 
 ```bash
 task deploy
@@ -66,11 +65,16 @@ task up
 MinIO-specific operations:
 
 ```bash
+task minio:start
+task minio:stop
+task minio:restart
 task minio:status
 task minio:logs
 task minio:console
 task minio:api
 ```
+
+`minio:stop` removes the MinIO StatefulSet and Services but intentionally retains the data PVC and `minio-bootstrap` Secret. `minio:start` reuses them.
 
 ## Validation
 

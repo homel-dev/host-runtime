@@ -22,7 +22,14 @@ jobs:
       - name: Render manifests
         run: |
           kubectl kustomize k8s >/tmp/host-runtime.yaml
+          kubectl kustomize k8s/minio >/tmp/minio.yaml
           kubectl kustomize k8s/oco-consumer >/tmp/oco-consumer.yaml
+
+
+      - name: Reject local MinIO credentials and license
+        run: |
+          test ! -e minio.env
+          test ! -e minio.license
 
       - name: Reject committed Kubernetes Secrets
         run: |

@@ -35,25 +35,34 @@ Official documentation:
 - https://docs.min.io/aistor/operations/licenses/
 - https://docs.min.io/aistor/installation/kubernetes/install/deploy-aistor-on-kubernetes/
 
-## Bootstrap secret
+## Local configuration and bootstrap Secret
 
-Set three local environment variables:
+The operator-facing configuration lives in local `minio.env`, which is ignored by Git. The repository contains `minio.env.example` with lab defaults:
 
-```bash
-export MINIO_ROOT_USER='replace-with-a-long-random-access-key'
-export MINIO_ROOT_PASSWORD='replace-with-a-long-random-secret-key'
-export MINIO_LICENSE_FILE='/absolute/path/to/minio.license'
+```text
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=minioadmin-change-me
+MINIO_LICENSE_FILE=./minio.license
 ```
 
-Create or update the Secret:
+The normal first-run path is simply:
+
+```bash
+# Put the AIStor license at ./minio.license, then:
+task minio:start
+```
+
+If `minio.env` does not exist, `minio:start` creates it automatically from `minio.env.example`. `task minio:restart` and the full `task deploy` path use the same local file; no shell exports are required. Change `MINIO_LICENSE_FILE` in `minio.env` only if the license lives somewhere else. Both `minio.env` and `minio.license` are ignored by Git. `task minio:init` remains available when you only want to materialize/edit the local file without starting MinIO.
+
+The committed credentials are examples for an isolated local/lab deployment. Change them before exposing MinIO outside that environment. Applications must never use these root credentials.
+
+The bootstrap task materializes the local values into Kubernetes:
 
 ```bash
 task minio:bootstrap-secret
 ```
 
-If the MinIO StatefulSet already exists, the task restarts it so updated root credentials take effect.
-
-The secret contains:
+The resulting `minio-bootstrap` Secret contains:
 
 ```text
 root-user
@@ -61,7 +70,7 @@ root-password
 minio.license
 ```
 
-None of these values belong in the repository.
+No credential or license value is committed to the repository.
 
 ## Storage
 
@@ -111,10 +120,16 @@ If the cluster later adopts namespace default-deny policies or externally expose
 ## Operations
 
 ```bash
+task minio:init
+task minio:start
+task minio:stop
+task minio:restart
 task minio:status
 task minio:logs
 task minio:console
 task minio:api
 ```
+
+`minio:start` creates/updates the bootstrap Secret, applies only `k8s/minio`, waits for the StatefulSet to become ready, and prints status. `minio:restart` refreshes the Secret and restarts the existing StatefulSet; if it is absent, it deploys it. `minio:stop` removes only the MinIO workload and Services and deliberately preserves the data PVC and bootstrap Secret.
 
 `minio:console` and `minio:api` use `kubectl port-forward`; they do not create persistent host-facing services.

@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+minio.env
 *.secret.yml
 *.secret.yaml
 *.license
