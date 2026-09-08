@@ -133,3 +133,12 @@ task minio:api
 `minio:start` creates/updates the bootstrap Secret, applies only `k8s/minio`, waits for the StatefulSet to become ready, and prints status. `minio:restart` refreshes the Secret and restarts the existing StatefulSet; if it is absent, it deploys it. `minio:stop` removes only the MinIO workload and Services and deliberately preserves the data PVC and bootstrap Secret.
 
 `minio:console` and `minio:api` use `kubectl port-forward`; they do not create persistent host-facing services.
+
+
+## RR run-artifact integration
+
+`task minio:rr-artifacts` provisions the `rr-artifacts` bucket, an RR writer identity scoped to that bucket, and an OCO read-only identity. It publishes the writer S3 configuration as Secret `rr/rr-artifact-store` and the reader configuration as Secret `observability-console/oco-artifact-store`. It also applies `k8s/minio-consumers/networkpolicy.yml`, which permits S3 access from the trusted RR runner and the Observability Console while keeping MinIO itself ClusterIP-only.
+
+Anonymous bucket access is explicitly disabled. OCO authenticates to MinIO with the read-only identity and is the browser-facing authenticated proxy. RR runners write `runs/<run-id>/...` after every terminal worker invocation. The source `workspace/` tree is deliberately excluded from run-artifact publication.
+
+Host Runtime still owns only storage. RR owns artifact meaning and publication; OCO owns presentation.

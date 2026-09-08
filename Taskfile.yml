@@ -136,6 +136,7 @@ tasks:
     cmds:
       - task: minio:bootstrap-secret
       - kubectl apply -k k8s/minio
+      - kubectl apply -f k8s/minio-consumers/networkpolicy.yml
       - kubectl -n host-runtime rollout status statefulset/minio --timeout=180s
       - task: minio:status
 
@@ -159,6 +160,7 @@ tasks:
         else
           kubectl apply -k k8s/minio
         fi
+      - kubectl apply -f k8s/minio-consumers/networkpolicy.yml
       - kubectl -n host-runtime rollout status statefulset/minio --timeout=180s
       - task: minio:status
 
@@ -184,6 +186,79 @@ tasks:
     desc: Port-forward the MinIO S3 API to localhost:9000
     cmds:
       - kubectl -n host-runtime port-forward svc/minio 9000:9000
+
+  minio:rr-artifacts:
+    desc: Provision the rr-artifacts bucket, scoped RR writer/OCO reader credentials, and MinIO consumer NetworkPolicy
+    cmds:
+      - |
+        set -eu
+        kubectl -n host-runtime rollout status statefulset/minio --timeout=180s
+        kubectl get namespace rr >/dev/null
+        kubectl get namespace observability-console >/dev/null
+        kubectl apply -f k8s/minio-consumers/networkpolicy.yml
+
+        writer_access=rr-artifacts-writer
+        writer_secret=""
+        if kubectl -n rr get secret rr-artifact-store >/dev/null 2>&1; then
+          existing_access="$(kubectl -n rr get secret rr-artifact-store -o jsonpath='{.data.RR_ARTIFACT_STORE_ACCESS_KEY}' | base64 -d 2>/dev/null || true)"
+          existing_secret="$(kubectl -n rr get secret rr-artifact-store -o jsonpath='{.data.RR_ARTIFACT_STORE_SECRET_KEY}' | base64 -d 2>/dev/null || true)"
+          if [ -n "$existing_access" ] && [ -n "$existing_secret" ]; then
+            writer_access="$existing_access"
+            writer_secret="$existing_secret"
+          fi
+        fi
+        if [ -z "$writer_secret" ]; then writer_secret="$(openssl rand -hex 32)"; fi
+
+        reader_access=oco-artifacts-reader
+        reader_secret=""
+        if kubectl -n observability-console get secret oco-artifact-store >/dev/null 2>&1; then
+          existing_access="$(kubectl -n observability-console get secret oco-artifact-store -o jsonpath='{.data.OCO_ARTIFACT_STORE_ACCESS_KEY}' | base64 -d 2>/dev/null || true)"
+          existing_secret="$(kubectl -n observability-console get secret oco-artifact-store -o jsonpath='{.data.OCO_ARTIFACT_STORE_SECRET_KEY}' | base64 -d 2>/dev/null || true)"
+          if [ -n "$existing_access" ] && [ -n "$existing_secret" ]; then
+            reader_access="$existing_access"
+            reader_secret="$existing_secret"
+          fi
+        fi
+        if [ -z "$reader_secret" ]; then reader_secret="$(openssl rand -hex 32)"; fi
+
+        kubectl -n host-runtime create secret generic rr-artifact-provision \
+          --from-literal=writer-access-key="$writer_access" \
+          --from-literal=writer-secret-key="$writer_secret" \
+          --from-literal=reader-access-key="$reader_access" \
+          --from-literal=reader-secret-key="$reader_secret" \
+          --dry-run=client -o yaml | kubectl apply -f -
+        kubectl -n host-runtime delete job minio-rr-artifacts-provision --ignore-not-found --wait=true >/dev/null
+        kubectl apply -f k8s/minio-consumers/provision-job.yml
+        if ! kubectl -n host-runtime wait --for=condition=complete job/minio-rr-artifacts-provision --timeout=120s; then
+          kubectl -n host-runtime logs job/minio-rr-artifacts-provision || true
+          kubectl -n host-runtime delete secret rr-artifact-provision --ignore-not-found >/dev/null
+          exit 1
+        fi
+
+        kubectl -n rr create secret generic rr-artifact-store \
+          --from-literal=RR_ARTIFACT_STORE_ENDPOINT=http://minio.host-runtime.svc.cluster.local:9000 \
+          --from-literal=RR_ARTIFACT_STORE_BUCKET=rr-artifacts \
+          --from-literal=RR_ARTIFACT_STORE_ACCESS_KEY="$writer_access" \
+          --from-literal=RR_ARTIFACT_STORE_SECRET_KEY="$writer_secret" \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+        kubectl -n observability-console create secret generic oco-artifact-store \
+          --from-literal=OCO_ARTIFACT_STORE_ENDPOINT=http://minio.host-runtime.svc.cluster.local:9000 \
+          --from-literal=OCO_ARTIFACT_STORE_BUCKET=rr-artifacts \
+          --from-literal=OCO_ARTIFACT_STORE_ACCESS_KEY="$reader_access" \
+          --from-literal=OCO_ARTIFACT_STORE_SECRET_KEY="$reader_secret" \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+        kubectl -n host-runtime delete secret rr-artifact-provision --ignore-not-found >/dev/null
+        kubectl -n host-runtime delete job minio-rr-artifacts-provision --ignore-not-found --wait=false >/dev/null
+        printf '%s\n' "RR artifact store ready: s3://rr-artifacts/runs/<run-id>/"
+
+  minio:rr-artifacts-status:
+    desc: Show RR artifact bucket wiring without printing credentials
+    cmds:
+      - kubectl get -f k8s/minio-consumers/networkpolicy.yml
+      - kubectl -n rr get secret rr-artifact-store -o jsonpath='{.metadata.name}{"\n"}'
+      - kubectl -n observability-console get secret oco-artifact-store -o jsonpath='{.metadata.name}{"\n"}'
 
   oco-contract:
     desc: Apply only OCO consumer ConfigMaps and RBAC in host-runtime namespace

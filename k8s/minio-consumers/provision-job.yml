@@ -1,0 +1,112 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-rr-artifacts-provision
+  namespace: host-runtime
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: minio-rr-artifacts-provision
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      containers:
+        - name: mc
+          image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              mc alias set host-runtime "$MINIO_ENDPOINT" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" --api S3v4 --path on
+              mc mb --ignore-existing host-runtime/rr-artifacts
+              cat > /tmp/rr-writer-policy.json <<'EOF'
+              {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Action": ["s3:GetBucketLocation", "s3:ListBucket", "s3:ListBucketMultipartUploads"],
+                    "Resource": ["arn:aws:s3:::rr-artifacts"]
+                  },
+                  {
+                    "Effect": "Allow",
+                    "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:AbortMultipartUpload", "s3:ListMultipartUploadParts"],
+                    "Resource": ["arn:aws:s3:::rr-artifacts/*"]
+                  }
+                ]
+              }
+              EOF
+              cat > /tmp/oco-reader-policy.json <<'EOF'
+              {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Action": ["s3:GetBucketLocation", "s3:ListBucket"],
+                    "Resource": ["arn:aws:s3:::rr-artifacts"]
+                  },
+                  {
+                    "Effect": "Allow",
+                    "Action": ["s3:GetObject"],
+                    "Resource": ["arn:aws:s3:::rr-artifacts/*"]
+                  }
+                ]
+              }
+              EOF
+              mc admin policy create host-runtime rr-artifacts-writer /tmp/rr-writer-policy.json
+              mc admin policy create host-runtime oco-artifacts-reader /tmp/oco-reader-policy.json
+              mc admin user remove host-runtime "$RR_ARTIFACT_STORE_ACCESS_KEY" >/dev/null 2>&1 || true
+              mc admin user add host-runtime "$RR_ARTIFACT_STORE_ACCESS_KEY" "$RR_ARTIFACT_STORE_SECRET_KEY"
+              mc admin policy attach host-runtime rr-artifacts-writer --user "$RR_ARTIFACT_STORE_ACCESS_KEY"
+              mc admin user remove host-runtime "$OCO_ARTIFACT_STORE_ACCESS_KEY" >/dev/null 2>&1 || true
+              mc admin user add host-runtime "$OCO_ARTIFACT_STORE_ACCESS_KEY" "$OCO_ARTIFACT_STORE_SECRET_KEY"
+              mc admin policy attach host-runtime oco-artifacts-reader --user "$OCO_ARTIFACT_STORE_ACCESS_KEY"
+              mc anonymous set none host-runtime/rr-artifacts
+              mc stat host-runtime/rr-artifacts >/dev/null
+          env:
+            - name: MINIO_ENDPOINT
+              value: http://minio.host-runtime.svc.cluster.local:9000
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-bootstrap
+                  key: root-user
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-bootstrap
+                  key: root-password
+            - name: RR_ARTIFACT_STORE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rr-artifact-provision
+                  key: writer-access-key
+            - name: RR_ARTIFACT_STORE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rr-artifact-provision
+                  key: writer-secret-key
+            - name: OCO_ARTIFACT_STORE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rr-artifact-provision
+                  key: reader-access-key
+            - name: OCO_ARTIFACT_STORE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rr-artifact-provision
+                  key: reader-secret-key
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
