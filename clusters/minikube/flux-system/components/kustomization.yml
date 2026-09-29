@@ -1,6 +1,0 @@
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-# Flux v2.9.5, pinned to the verified release commit.
-resources:
-  - https://github.com/fluxcd/flux2//manifests/install?ref=dd233c4fadef306a62b7893204f8e3817fecc2b2

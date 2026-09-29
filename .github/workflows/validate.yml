@@ -28,6 +28,13 @@ jobs:
           kubectl kustomize clusters/minikube/apps >/tmp/flux-apps.yaml
           kubectl kustomize clusters/minikube >/tmp/flux-cluster.yaml
 
+      - name: Validate operator scripts
+        run: |
+          bash -n scripts/kex-run.sh
+          bash -n scripts/kex-deploy.sh
+          bash -n scripts/flux-bootstrap.sh
+          bash -n scripts/flux-status.sh
+
       - name: Enforce shared observability backend contract
         run: |
           test ! -d k8s/prometheus
@@ -38,9 +45,8 @@ jobs:
           grep -F 'alloy.observability-backend.svc.cluster.local:12348/loki/api/v1/push' k8s/observability/alloy/alloy.yml
           grep -F 'alloy.observability-backend.svc.cluster.local:4317' k8s/observability/alloy/alloy.yml
           grep -F '"uid": "victoriametrics"' k8s/oco-consumer/configmap-dashboard.yml
-          grep -F 'dd233c4fadef306a62b7893204f8e3817fecc2b2' clusters/minikube/flux-system/components/kustomization.yml
+          test ! -d clusters/minikube/flux-system/components
           test ! -e clusters/minikube/flux-system/secret.yml
-
 
       - name: Reject local MinIO credentials and license
         run: |
@@ -53,3 +59,83 @@ jobs:
             echo 'Do not commit Kubernetes Secret manifests. Create secrets at deploy time.' >&2
             exit 1
           fi
+
+  kex-toolbox-image:
+    name: Build, smoke-test, and publish Kubernetes execution toolbox
+    runs-on: ubuntu-24.04
+    needs: manifests
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Image coordinates
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER}/host-runtime-kex-toolbox"
+          printf 'image=%s\n' "$(printf '%s' "$image" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build smoke-test image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./toolbox/Dockerfile
+          load: true
+          push: false
+          tags: host-runtime-kex-toolbox-smoke:${{ github.sha }}
+          cache-from: type=gha,scope=host-runtime-kex-toolbox
+          cache-to: type=gha,mode=max,scope=host-runtime-kex-toolbox
+
+      - name: Smoke-test toolbox
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="host-runtime-kex-toolbox-smoke:${GITHUB_SHA}"
+          docker run --rm --entrypoint bash "$image" -lc '
+            set -euo pipefail
+            kubectl version --client >/dev/null
+            helm version --short
+            flux version --client
+            yq --version
+            git --version
+            gh --version | head -1
+            curl --version | head -1
+            jq --version
+            ssh -V
+            openssl version
+            dig -v
+            ip -Version
+            nc -h >/dev/null 2>&1 || true
+            python3 --version
+            psql --version
+            redis-cli --version
+            sqlite3 --version
+          '
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish toolbox image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./toolbox/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image }}:main
+            ${{ steps.image.outputs.image }}:sha-${{ github.sha }}
+          cache-from: type=gha,scope=host-runtime-kex-toolbox
+          cache-to: type=gha,mode=max,scope=host-runtime-kex-toolbox

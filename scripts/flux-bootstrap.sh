@@ -1,53 +1,54 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-EXPECTED_CONTEXT="${FLUX_EXPECT_CONTEXT:-minikube}"
-AUTH_SECRET="${FLUX_AUTH_SECRET:-flux-system}"
+FLUX_TOOLKIT_VERSION="${FLUX_TOOLKIT_VERSION:-v2.9.5}"
+FLUX_GITHUB_OWNER="${FLUX_GITHUB_OWNER:-homel-dev}"
+FLUX_GITHUB_REPOSITORY="${FLUX_GITHUB_REPOSITORY:-host-runtime}"
+FLUX_GITHUB_BRANCH="${FLUX_GITHUB_BRANCH:-main}"
+FLUX_CLUSTER_PATH="${FLUX_CLUSTER_PATH:-clusters/minikube}"
+FLUX_EXPECT_CONTEXT="${FLUX_EXPECT_CONTEXT:-minikube}"
 
-for cmd in kubectl; do
-  command -v "$cmd" >/dev/null 2>&1 || {
-    printf '%s\n' "required command not found: $cmd" >&2
-    exit 1
-  }
-done
+command -v kubectl >/dev/null 2>&1 || {
+  printf '%s\n' 'required command not found: kubectl' >&2
+  exit 1
+}
 
 current_context="$(kubectl config current-context)"
-if [ "$current_context" != "$EXPECTED_CONTEXT" ] && [ "${FLUX_ALLOW_CONTEXT_MISMATCH:-0}" != "1" ]; then
-  printf '%s\n' "refusing Flux bootstrap: current context '$current_context', expected '$EXPECTED_CONTEXT'" >&2
-  printf '%s\n' "set FLUX_ALLOW_CONTEXT_MISMATCH=1 only if the target cluster is intentional" >&2
+if [ "$current_context" != "$FLUX_EXPECT_CONTEXT" ] && [ "${FLUX_ALLOW_CONTEXT_MISMATCH:-0}" != "1" ]; then
+  printf '%s\n' "refusing Flux bootstrap: current context '$current_context', expected '$FLUX_EXPECT_CONTEXT'" >&2
+  printf '%s\n' 'set FLUX_ALLOW_CONTEXT_MISMATCH=1 only if the target cluster is intentional' >&2
   exit 1
 fi
 
-: "${FLUX_GITHUB_TOKEN:?FLUX_GITHUB_TOKEN is required to read the private host-runtime repository}"
+if [ -z "${GITHUB_TOKEN:-}" ] && [ -n "${FLUX_GITHUB_TOKEN:-}" ]; then
+  export GITHUB_TOKEN="$FLUX_GITHUB_TOKEN"
+fi
+: "${GITHUB_TOKEN:?GITHUB_TOKEN is required; use the dedicated Flux organization user PAT}"
 
-# Install the controllers first. gotk-sync cannot be applied before the Flux CRDs exist.
-kubectl apply -k clusters/minikube/flux-system/components
+GITHUB_TOKEN="$GITHUB_TOKEN" ./scripts/kex-run.sh bash -lc '
+set -euo pipefail
+owner="$1"
+repository="$2"
+branch="$3"
+path="$4"
+version="$5"
 
-kubectl wait --for=condition=Established \
-  crd/gitrepositories.source.toolkit.fluxcd.io \
-  crd/kustomizations.kustomize.toolkit.fluxcd.io \
-  --timeout=180s
-
-for deployment in source-controller kustomize-controller; do
-  kubectl -n flux-system rollout status "deployment/$deployment" --timeout=180s
-done
-
-secret_dir="$(mktemp -d)"
-trap 'rm -rf "$secret_dir"' EXIT INT TERM
-umask 077
-printf '%s' 'git' >"$secret_dir/username"
-printf '%s' "$FLUX_GITHUB_TOKEN" >"$secret_dir/password"
-
-kubectl -n flux-system create secret generic "$AUTH_SECRET" \
-  --from-file=username="$secret_dir/username" \
-  --from-file=password="$secret_dir/password" \
-  --dry-run=client -o yaml | kubectl apply -f -
-
-kubectl apply -f clusters/minikube/flux-system/gotk-sync.yaml
-
-kubectl -n flux-system wait --for=condition=Ready gitrepository/flux-system --timeout=180s
-kubectl -n flux-system wait --for=condition=Ready kustomization/flux-system --timeout=600s
-kubectl -n flux-system wait --for=condition=Ready kustomization/host-runtime --timeout=600s
-kubectl -n flux-system wait --for=condition=Ready kustomization/llm-runtime --timeout=900s
-
-kubectl -n flux-system get gitrepositories,kustomizations
+flux version --client
+flux check --pre
+flux bootstrap github \
+  --owner="$owner" \
+  --repository="$repository" \
+  --branch="$branch" \
+  --path="$path" \
+  --version="$version" \
+  --personal=false \
+  --token-auth=false \
+  --reconcile
+flux check
+flux get all -A
+' -- \
+  "$FLUX_GITHUB_OWNER" \
+  "$FLUX_GITHUB_REPOSITORY" \
+  "$FLUX_GITHUB_BRANCH" \
+  "$FLUX_CLUSTER_PATH" \
+  "$FLUX_TOOLKIT_VERSION"

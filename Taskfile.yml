@@ -9,13 +9,29 @@ tasks:
       - task --list
 
   validate:
-    desc: Render Kubernetes and Flux manifests with Kustomize
+    desc: Render Kubernetes and Flux manifests and validate operator scripts
     cmds:
       - kubectl kustomize k8s >/dev/null
       - kubectl kustomize k8s/minio >/dev/null
       - kubectl kustomize k8s/oco-consumer >/dev/null
       - kubectl kustomize clusters/minikube/apps >/dev/null
       - kubectl kustomize clusters/minikube >/dev/null
+      - bash -n scripts/kex-run.sh scripts/kex-deploy.sh scripts/flux-bootstrap.sh scripts/flux-status.sh
+
+  kex:deploy:
+    desc: Reconcile the persistent Kubernetes execution toolbox used by the shell kex helper
+    cmds:
+      - ./scripts/kex-deploy.sh
+
+  kex:status:
+    desc: Show the persistent Kubernetes execution toolbox
+    cmds:
+      - kubectl -n "${KEX_NAMESPACE:-kex}" get deployment,pod -l app.kubernetes.io/component=toolbox -o wide
+
+  kex:smoke:
+    desc: Run the core Kubernetes/GitOps CLI smoke test in an ephemeral execution pod
+    cmds:
+      - ./scripts/kex-run.sh bash -lc 'kubectl version --client && helm version --short && flux version --client && yq --version && git --version && curl --version | head -1'
 
   deploy:
     desc: Refresh external bootstrap state and reconcile host-runtime through Flux
@@ -24,8 +40,13 @@ tasks:
       - task: flux:reconcile-host-runtime
 
 
+  flux:preflight:
+    desc: Check Flux prerequisites from the Kubernetes execution toolbox
+    cmds:
+      - ./scripts/kex-run.sh bash -lc 'flux version --client && flux check --pre'
+
   flux:bootstrap:
-    desc: One-time/idempotent Flux installation and GitOps bootstrap for Minikube
+    desc: One-time/idempotent Flux GitHub bootstrap for Minikube
     cmds:
       - task: minio:bootstrap-secret
       - ./scripts/flux-bootstrap.sh
@@ -36,18 +57,14 @@ tasks:
       - ./scripts/flux-status.sh
 
   flux:reconcile:
-    desc: Request reconciliation of the host-runtime Git source and cluster control root
+    desc: Reconcile the cluster Flux root and its source
     cmds:
-      - kubectl -n flux-system annotate gitrepository flux-system reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite
-      - kubectl -n flux-system annotate kustomization flux-system reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite
-      - kubectl -n flux-system wait --for=condition=Ready kustomization/flux-system --timeout=600s
+      - ./scripts/kex-run.sh flux reconcile kustomization flux-system --with-source
 
   flux:reconcile-host-runtime:
-    desc: Request Host Runtime reconciliation and wait for readiness
+    desc: Reconcile Host Runtime and its source
     cmds:
-      - kubectl -n flux-system annotate gitrepository flux-system reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite
-      - kubectl -n flux-system annotate kustomization host-runtime reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite
-      - kubectl -n flux-system wait --for=condition=Ready kustomization/host-runtime --timeout=600s
+      - ./scripts/kex-run.sh flux reconcile kustomization host-runtime --with-source
 
   delete:
     desc: Delete host-runtime workloads/configuration while retaining namespace, data PVCs, and MinIO bootstrap Secret

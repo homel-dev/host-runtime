@@ -2,66 +2,120 @@
 
 ## Scope
 
-`host-runtime` is the Flux control repository for the Minikube cluster.
-
-The cluster reconciliation root is `clusters/minikube/`. Flux itself and project reconciliation objects live there. Project Kubernetes resources remain in their owning repositories.
+`host-runtime` is the Flux bootstrap/control repository for the Minikube cluster.
+The cluster reconciliation root is `clusters/minikube/`. Project Kubernetes
+resources remain in their owning repositories.
 
 Current project mappings are:
 
 - `host-runtime` -> `https://github.com/homel-dev/host-runtime.git`, path `./k8s`
 - `llm-runtime` -> `https://github.com/homel-dev/llm-runtime.git`, path `./k8s`
 
-There is no cross-project `dependsOn` graph in this phase. One repository is one project reconciliation root.
+There is no cross-project `dependsOn` graph in this phase. One repository is one
+project reconciliation root.
 
-## Flux installation
+## Execution environment
 
-Flux does not need the `flux` CLI on the host.
+Flux is bootstrapped with the official Flux CLI. The host does not need a local
+Flux binary: `scripts/kex-run.sh` executes the CLI in the repository-owned
+Kubernetes execution toolbox image.
 
-`clusters/minikube/flux-system/components/kustomization.yml` installs Flux from the upstream Flux v2.9.5 manifests pinned to release commit:
+The toolbox contains pinned `kubectl`, Helm, Flux CLI, and `yq`, plus shell,
+Git, network, DNS, TLS, process, and database diagnostic utilities. See
+[06_kex_toolbox.md](06_kex_toolbox.md).
 
-`dd233c4fadef306a62b7893204f8e3817fecc2b2`
+## GitHub organization identity
 
-The v2.9.5 annotated tag resolves to that commit and its tag signature is verified by GitHub.
+For an organization-owned repository, use a dedicated GitHub user for Flux and
+make that user a member of the `homel-dev` organization.
 
-The initial bootstrap deliberately has two phases:
+For the existing `homel-dev/host-runtime` repository, that user must have
+repository `admin` access because the SSH bootstrap manages a repository deploy
+key.
 
-1. apply Flux controllers and CRDs;
-2. create Git credentials and apply `gotk-sync.yaml`.
+For a fine-grained PAT scoped to this existing repository, use:
 
-Applying controllers and Flux custom resources in one `kubectl apply -k` is not used because the custom resources depend on CRDs that must already be established.
+- `Administration`: read/write;
+- `Contents`: read/write;
+- `Metadata`: read-only.
 
-## Private host-runtime Git authentication
+`Administration` read/write is required because this bootstrap uses SSH deploy
+keys (`--token-auth=false`).
 
-The bootstrap source is `GitRepository/flux-system` in namespace `flux-system`.
+Export the PAT as `GITHUB_TOKEN`. `FLUX_GITHUB_TOKEN` remains accepted by the
+wrapper only as a compatibility alias.
 
-It references Secret `flux-system/flux-system`. The Secret is not committed to Git. Create it through the bootstrap task from an environment variable:
+## Authentication model
 
-`export FLUX_GITHUB_TOKEN=...`
+Bootstrap uses the Flux CLI SSH deploy-key flow:
 
-The token needs read access to the private `homel-dev/host-runtime` repository. Then run:
+`--token-auth=false`
 
-`task flux:bootstrap`
+The PAT is used by the CLI to call the GitHub API during bootstrap. Flux creates
+an SSH key pair, registers the public key as the repository deploy key, and
+stores the private key in the `flux-system/flux-system` Kubernetes Secret. The
+PAT itself is not stored as the Git source credential.
 
-The task creates the external MinIO bootstrap Secret first, then installs Flux and starts Git reconciliation.
+The deploy key is read-only. Do not add `--read-write-key` unless a later design
+explicitly enables Flux write-back such as image automation.
 
-## Self reconciliation
+Do not hand-create a username/password Git Secret for `GitRepository/flux-system`.
 
-`Kustomization/flux-system` reconciles `./clusters/minikube` from the `host-runtime` repository. This means Flux configuration, controller installation input, and project reconciliation objects are themselves Git-managed after the one-time bootstrap.
+## Bootstrap
 
-`Kustomization/host-runtime` uses the same `GitRepository/flux-system` source and reconciles `./k8s`.
+The Host Runtime MinIO bootstrap Secret remains external to Git. Materialize it
+through the existing operator task, export the dedicated Flux user's PAT, then
+bootstrap:
 
-`GitRepository/llm-runtime` is public and requires no Git Secret. `Kustomization/llm-runtime` reconciles its `./k8s` root.
+```text
+task minio:bootstrap-secret
+export GITHUB_TOKEN=...
+task flux:bootstrap
+```
 
-Both project Kustomizations use pruning and health waiting.
+The bootstrap wrapper validates the current Kubernetes context, creates a
+short-lived Kubernetes execution pod, and runs:
+
+```text
+flux check --pre
+flux bootstrap github \
+  --owner=homel-dev \
+  --repository=host-runtime \
+  --branch=main \
+  --path=clusters/minikube \
+  --version=v2.9.5 \
+  --personal=false \
+  --token-auth=false \
+  --reconcile
+flux check
+flux get all -A
+```
+
+`flux bootstrap github` owns the generated files under
+`clusters/minikube/flux-system/`, including `gotk-components.yaml`,
+`gotk-sync.yaml`, and its Kustomize file. Do not replace controller installation
+with a remote Kustomize reference to Flux release assets.
+
+## Reconciliation
+
+`Kustomization/flux-system` reconciles `./clusters/minikube` from the
+`host-runtime` repository.
+
+`Kustomization/host-runtime` uses the bootstrap-generated
+`GitRepository/flux-system` source and reconciles `./k8s`.
+
+`GitRepository/llm-runtime` is public and `Kustomization/llm-runtime` reconciles
+its `./k8s` root.
+
+Project Kustomizations use pruning and health waiting.
 
 ## Secrets
 
-Git reconciliation does not make locally generated or licensed material safe to commit.
-
-The following remain bootstrap/runtime state until separately migrated to SOPS or another declarative secret mechanism:
+The following remain bootstrap/runtime state until separately migrated to SOPS
+or another declarative secret mechanism:
 
 - `host-runtime/minio-bootstrap`;
-- GitHub authentication for Flux;
+- the bootstrap-generated Flux SSH credential Secret;
 - consumer credentials generated by MinIO provisioning;
 - provider credentials owned by other projects.
 
@@ -69,32 +123,33 @@ Do not commit those Secrets.
 
 ## Image publication ordering
 
-A source-code commit must not make Kubernetes roll to an image that CI has not published yet.
+Application CI publishes an immutable digest or commit-specific image tag first.
+Only after publication does the owning repository update the desired-state image
+reference. Flux reconciles that Git change.
 
-The deployment contract is therefore immutable image promotion: CI publishes a digest or commit-specific tag first, then the owning project updates its Git desired-state image reference. Flux reconciles the Git reference change after publication.
-
-Flux image automation policy is not defined in `host-runtime`; image ownership and promotion belong to the project repository whose manifest is being changed.
+Flux image automation is not enabled in this phase.
 
 ## Operations
 
-Show state:
+Use:
 
-`task flux:status`
+```text
+task flux:preflight
+task flux:status
+task flux:reconcile
+task flux:reconcile-host-runtime
+```
 
-Request reconciliation of the control root:
-
-`task flux:reconcile`
-
-Request only Host Runtime reconciliation:
-
-`task flux:reconcile-host-runtime`
-
-The tasks use Kubernetes annotations directly and do not require the Flux CLI.
+The Flux CLI runs inside the Kubernetes execution toolbox. Host-side `kubectl`
+is still used to create the short-lived execution pod.
 
 ## Recovery
 
-If Flux controllers are removed but the repository and cluster remain intact, provide `FLUX_GITHUB_TOKEN` and rerun:
+If Flux controllers are removed, export a valid `GITHUB_TOKEN` for the dedicated
+Flux organization user and rerun:
 
 `task flux:bootstrap`
 
-The controller installation, Git Secret creation, and sync object application are declarative and can be repeated.
+The official bootstrap command installs/upgrades Flux, reconciles the generated
+repository files, recreates the SSH deploy key when required, and reconnects the
+cluster to Git.
