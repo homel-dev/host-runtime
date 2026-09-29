@@ -113,6 +113,6 @@ RUN useradd --uid 1000 --create-home --shell /bin/bash kex \
  && mkdir -p /work \
  && chown -R kex:kex /work
 
-USER kex
+USER 1000:1000
 WORKDIR /work
 CMD ["sleep", "infinity"]

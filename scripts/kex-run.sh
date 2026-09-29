@@ -83,6 +83,8 @@ EOF_PULL_SECRET
           memory: 512Mi
       securityContext:
         runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
         allowPrivilegeEscalation: false
         capabilities:
           drop: ["ALL"]

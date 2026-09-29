@@ -4,7 +4,7 @@ set -euo pipefail
 KEX_NAMESPACE="${KEX_NAMESPACE:-kex}"
 KEX_DEPLOYMENT="${KEX_DEPLOYMENT:-kex-toolbox}"
 KEX_IMAGE="${KEX_IMAGE:-ghcr.io/homel-dev/host-runtime-kex-toolbox:main}"
-KEX_IMAGE_PULL_SECRET="${KEX_IMAGE_PULL_SECRET:-}"
+KEX_IMAGE_PULL_SECRET="${KEX_IMAGE_PULL_SECRET:-ghcr-pull-secret}"
 
 command -v kubectl >/dev/null 2>&1 || {
   printf '%s\n' 'required command not found: kubectl' >&2
@@ -59,6 +59,8 @@ EOF_PULL_SECRET
               memory: 512Mi
           securityContext:
             runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
