@@ -18,7 +18,6 @@ resources:
   - minio/statefulset.yml
   - minio/service.yml
 
-  - oco-consumer/configmap-datasource.yml
   - oco-consumer/configmap-dashboard.yml
   - oco-consumer/role.yml
   - oco-consumer/rolebinding.yml

@@ -41,6 +41,7 @@ MinIO is a shared platform service. Consumer buckets and credentials belong to t
 - `kubectl`
 - [Task](https://taskfile.dev/)
 - OCO `observability-backend` deployed with central Alloy ingress
+- GitHub token with read access to `homel-dev/host-runtime` for the one-time Flux bootstrap
 - MinIO AIStor Free license file for the object-store deployment
 
 ## Deploy
@@ -53,15 +54,18 @@ task minio:start
 
 On the first run the task automatically creates local `minio.env` from the committed `minio.env.example`. Both `minio.env` and `minio.license` are ignored by Git. The example credentials are `minioadmin` / `minioadmin-change-me`; edit `minio.env` before using MinIO outside an isolated local environment. No shell exports are required.
 
-Deploy the complete Host Runtime:
+Bootstrap Flux once for the Minikube cluster:
 
 ```bash
-task deploy
+export FLUX_GITHUB_TOKEN=...
+task flux:bootstrap
 ```
 
-`task deploy` waits for namespace-local Alloy to become ready before deleting legacy `prometheus` resources from older Host Runtime revisions.
+After bootstrap, Git is the desired-state deployment path. `task deploy` refreshes the external MinIO bootstrap Secret and requests Flux reconciliation; it does not apply the Host Runtime Kustomization directly.
 
-`task delete` removes workloads and configuration but intentionally retains persistent MinIO data PVCs and the MinIO bootstrap Secret. Destructive namespace/data removal requires `HOST_RUNTIME_PURGE=YES task purge`.
+`task delete` remains an explicit destructive/operator command and is not part of normal reconciliation. It removes workloads and configuration but intentionally retains persistent MinIO data PVCs and the MinIO bootstrap Secret. Destructive namespace/data removal requires `HOST_RUNTIME_PURGE=YES task purge`.
+
+See [Flux GitOps](docs/05_flux_gitops.md) for bootstrap, repository mapping, secret handling, reconciliation, and recovery.
 
 ## Status
 
@@ -130,6 +134,7 @@ Host Runtime does not own:
 - [OCO wiring](docs/02_oco_wiring.md)
 - [Metrics](docs/03_metrics.md)
 - [Shared object storage](docs/04_object_storage.md)
+- [Flux GitOps](docs/05_flux_gitops.md)
 
 ## License
 

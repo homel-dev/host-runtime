@@ -9,17 +9,45 @@ tasks:
       - task --list
 
   validate:
-    desc: Render Kubernetes manifests with Kustomize
+    desc: Render Kubernetes and Flux manifests with Kustomize
     cmds:
       - kubectl kustomize k8s >/dev/null
       - kubectl kustomize k8s/minio >/dev/null
       - kubectl kustomize k8s/oco-consumer >/dev/null
+      - kubectl kustomize clusters/minikube/apps >/dev/null
+      - kubectl kustomize clusters/minikube >/dev/null
 
   deploy:
-    desc: Deploy host-runtime telemetry, object storage, and OCO consumer contract
+    desc: Refresh external bootstrap state and reconcile host-runtime through Flux
     cmds:
       - task: minio:bootstrap-secret
-      - kubectl apply -k k8s
+      - task: flux:reconcile-host-runtime
+
+
+  flux:bootstrap:
+    desc: One-time/idempotent Flux installation and GitOps bootstrap for Minikube
+    cmds:
+      - task: minio:bootstrap-secret
+      - ./scripts/flux-bootstrap.sh
+
+  flux:status:
+    desc: Show Flux controllers, Git sources, reconciliations, and recent events
+    cmds:
+      - ./scripts/flux-status.sh
+
+  flux:reconcile:
+    desc: Request reconciliation of the host-runtime Git source and cluster control root
+    cmds:
+      - kubectl -n flux-system annotate gitrepository flux-system reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite
+      - kubectl -n flux-system annotate kustomization flux-system reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite
+      - kubectl -n flux-system wait --for=condition=Ready kustomization/flux-system --timeout=600s
+
+  flux:reconcile-host-runtime:
+    desc: Request Host Runtime reconciliation and wait for readiness
+    cmds:
+      - kubectl -n flux-system annotate gitrepository flux-system reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite
+      - kubectl -n flux-system annotate kustomization host-runtime reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite
+      - kubectl -n flux-system wait --for=condition=Ready kustomization/host-runtime --timeout=600s
 
   delete:
     desc: Delete host-runtime workloads/configuration while retaining namespace, data PVCs, and MinIO bootstrap Secret

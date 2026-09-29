@@ -25,16 +25,21 @@ jobs:
           kubectl kustomize k8s/observability >/tmp/observability.yaml
           kubectl kustomize k8s/minio >/tmp/minio.yaml
           kubectl kustomize k8s/oco-consumer >/tmp/oco-consumer.yaml
+          kubectl kustomize clusters/minikube/apps >/tmp/flux-apps.yaml
+          kubectl kustomize clusters/minikube >/tmp/flux-cluster.yaml
 
       - name: Enforce shared observability backend contract
         run: |
           test ! -d k8s/prometheus
           test ! -e k8s/oco-consumer/configmap-datasource.yml
+          ! grep -R --line-number --fixed-strings 'oco-consumer/configmap-datasource.yml' k8s
           ! grep -R --line-number --fixed-strings 'host-runtime-prometheus' k8s README.md docs
           grep -F 'alloy.observability-backend.svc.cluster.local:12347/api/v1/metrics/write' k8s/observability/alloy/alloy.yml
           grep -F 'alloy.observability-backend.svc.cluster.local:12348/loki/api/v1/push' k8s/observability/alloy/alloy.yml
           grep -F 'alloy.observability-backend.svc.cluster.local:4317' k8s/observability/alloy/alloy.yml
           grep -F '"uid": "victoriametrics"' k8s/oco-consumer/configmap-dashboard.yml
+          grep -F 'dd233c4fadef306a62b7893204f8e3817fecc2b2' clusters/minikube/flux-system/components/kustomization.yml
+          test ! -e clusters/minikube/flux-system/secret.yml
 
 
       - name: Reject local MinIO credentials and license
