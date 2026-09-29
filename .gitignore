@@ -20,3 +20,4 @@ rendered*.yaml
 .vscode/
 *.swp
 *.swo
+*.patch

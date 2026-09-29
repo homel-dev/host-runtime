@@ -1,11 +1,32 @@
 # OCO Wiring
 
-## Consumer-side contract
+## Telemetry path
 
-`host-runtime` publishes two labeled ConfigMaps:
+`host-runtime` runs namespace-local Grafana Alloy because it performs useful local work: exporter scraping, pod-log collection, OTLP reception, enrichment, and forwarding.
+
+The namespace is labeled:
 
 ```text
-grafana_datasource=1
+observability.homel.dev/telemetry-consumer=true
+observability.homel.dev/project=host-runtime
+observability.homel.dev/local-alloy=true
+```
+
+Central OCO ingress endpoints are:
+
+```text
+metrics remote write: http://alloy.observability-backend.svc.cluster.local:12347/api/v1/metrics/write
+logs Loki push:       http://alloy.observability-backend.svc.cluster.local:12348/loki/api/v1/push
+OTLP gRPC:            alloy.observability-backend.svc.cluster.local:4317
+```
+
+Central Alloy then routes telemetry to VictoriaMetrics, VictoriaLogs, and Tempo in `observability-backend`.
+
+## Dashboard contract
+
+`host-runtime` publishes one labeled ConfigMap:
+
+```text
 grafana_dashboard=1
 ```
 
@@ -16,30 +37,14 @@ Role/observability-console-reader
 RoleBinding/observability-console-reader
 ```
 
-## OCO-side watched namespace
-
-The current OCO deployment uses sidecars with a watched namespace set. Add `host-runtime` to the `NAMESPACE` value for both datasource and dashboard sidecars.
-
-Patch file included:
+The dashboard references the shared datasource UID:
 
 ```text
-oco-patches/observability-console-watch-host-runtime.patch
+victoriametrics
 ```
 
-Expected OCO sidecar namespace value after patch:
+Host Runtime does not publish a datasource and Grafana must not query a Host Runtime Prometheus endpoint.
 
-```text
-llm-runtime,host-runtime
-```
+## Central log de-duplication
 
-## Apply order
-
-```bash
-# in host-runtime repo
-task deploy
-
-# in oco repo
-git apply /path/to/host-runtime/oco-patches/observability-console-watch-host-runtime.patch
-task oco:deploy
-task oco:restart
-```
+Once Host Runtime uses local Alloy for pod logs, central OCO Alloy must exclude namespace `host-runtime` from its own Kubernetes pod-log tailing. Otherwise the same pod logs are shipped twice.

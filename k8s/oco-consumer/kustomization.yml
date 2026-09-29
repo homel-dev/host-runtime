@@ -6,7 +6,6 @@ namespace: host-runtime
 
 resources:
   - ../namespace.yml
-  - configmap-datasource.yml
   - configmap-dashboard.yml
   - role.yml
   - rolebinding.yml

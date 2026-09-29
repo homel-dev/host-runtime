@@ -2,20 +2,20 @@
 
 ## Purpose
 
-`host-runtime` provides host-level telemetry and shared platform storage for a single-host Kubernetes/lab environment.
+`host-runtime` provides host-level telemetry collection and shared platform storage for a single-host Kubernetes/lab environment.
 
-It is intentionally separate from application runtimes such as `llm-runtime`, Memory Steward, RR, and from OCO/Grafana presentation.
+It is intentionally separate from application runtimes such as `llm-runtime`, Memory Steward, RR, and from OCO/Grafana presentation and telemetry storage.
 
 The project owns:
 
+- namespace-local Alloy collection/shipping;
 - node-level collectors;
 - process/application collectors;
-- persistent Prometheus storage;
 - shared MinIO object storage;
-- Grafana datasource/dashboard definitions consumed by OCO;
+- Grafana dashboard definitions consumed by OCO;
 - namespace-local RBAC granting OCO read access to those definitions.
 
-OCO owns presentation only. Removing OCO removes the shared viewer, not Host Runtime metrics or object storage.
+OCO owns the standard telemetry backends: VictoriaMetrics, VictoriaLogs, and Tempo in `observability-backend`. Host Runtime does not deploy a local telemetry database.
 
 ## Namespace
 
@@ -27,18 +27,20 @@ host-runtime
 
 ```text
 host-runtime
-  prometheus
+  alloy
   node-exporter
   process-exporter
   minio
-  oco-consumer configmaps/rbac
+  oco-consumer dashboard/rbac
 ```
+
+Alloy scrapes Node Exporter, Process Exporter, MinIO, and itself; tails Host Runtime pod logs; accepts namespace-local OTLP; and ships those signals to central Alloy in `observability-backend`.
 
 MinIO is a platform storage primitive, not an observability backend. Application projects own their bucket layout and credentials while sharing the same S3 service.
 
 ## Host metrics
 
-Swap metrics are deliberately not included in the dashboard or Prometheus intent. The target host profile is judged by CPU, RAM, disk, network, and process/application pressure.
+Swap metrics are deliberately not included in the dashboard intent. The target host profile is judged by CPU, RAM, disk, network, and process/application pressure.
 
 ## Process/application visibility
 

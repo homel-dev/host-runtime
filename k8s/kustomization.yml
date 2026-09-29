@@ -7,10 +7,6 @@ namespace: host-runtime
 resources:
   - namespace.yml
 
-  - prometheus/configmap.yml
-  - prometheus/pvc.yml
-  - prometheus/deployment.yml
-  - prometheus/service.yml
 
   - exporters/node/daemonset.yml
   - exporters/node/service.yml
@@ -27,6 +23,7 @@ resources:
   - oco-consumer/role.yml
   - oco-consumer/rolebinding.yml
 
+  - observability
 labels:
   - includeSelectors: true
     pairs:

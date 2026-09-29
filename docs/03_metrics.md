@@ -1,5 +1,25 @@
 # Metrics
 
+## Collection and storage
+
+Namespace-local Alloy scrapes Host Runtime metric endpoints and remote-writes them to central Alloy:
+
+```text
+http://alloy.observability-backend.svc.cluster.local:12347/api/v1/metrics/write
+```
+
+VictoriaMetrics in `observability-backend` is the only standard metrics backend. Host Runtime has no local Prometheus or metrics PVC.
+
+Every Host Runtime scrape carries at least:
+
+```text
+project="host-runtime"
+namespace="host-runtime"
+service="..."
+subsystem="host-runtime"
+job="..."
+```
+
 ## Node Exporter
 
 Primary dashboards use:
@@ -37,12 +57,12 @@ No swap panels are included.
 
 ## MinIO
 
-Host Runtime Prometheus scrapes MinIO metrics v3 at:
+Alloy scrapes MinIO metrics v3 at:
 
 ```text
 http://minio.host-runtime.svc.cluster.local:9000/minio/metrics/v3
 ```
 
-The MinIO service is ClusterIP-only. Metrics authentication is configured as `public` for this internal service so Prometheus does not require root credentials or an administrative bearer token.
+The MinIO service is ClusterIP-only. Metrics authentication is configured as `public` for this internal service so Alloy does not require root credentials or an administrative bearer token.
 
 If the S3 endpoint is exposed outside the cluster or stricter network isolation is introduced, switch metrics scraping to a dedicated least-privilege MinIO Prometheus credential/token.

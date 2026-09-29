@@ -37,7 +37,7 @@ data:
           "description": "Node exporter scrape state.",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 4,
@@ -97,7 +97,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 4,
@@ -157,7 +157,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 4,
@@ -217,7 +217,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 4,
@@ -277,7 +277,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 4,
@@ -337,7 +337,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 4,
@@ -397,7 +397,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 7,
@@ -493,7 +493,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 7,
@@ -607,7 +607,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 6,
@@ -709,7 +709,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 6,
@@ -805,7 +805,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 6,
@@ -901,7 +901,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 6,
@@ -991,7 +991,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 6,
@@ -1087,7 +1087,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 6,
@@ -1183,7 +1183,7 @@ data:
           "description": "CPU cores by process group.",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 7,
@@ -1273,7 +1273,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 7,
@@ -1363,7 +1363,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 6,
@@ -1453,7 +1453,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 6,
@@ -1543,7 +1543,7 @@ data:
           "description": "",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 6,
@@ -1632,7 +1632,7 @@ data:
           "title": "Scrape target health",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 7,
@@ -1709,7 +1709,7 @@ data:
           "title": "Current process groups",
           "datasource": {
             "type": "prometheus",
-            "uid": "host-runtime-prometheus"
+            "uid": "victoriametrics"
           },
           "gridPos": {
             "h": 8,

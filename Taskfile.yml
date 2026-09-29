@@ -47,11 +47,6 @@ tasks:
     cmds:
       - kubectl -n host-runtime get events --sort-by=.lastTimestamp
 
-  logs-prometheus:
-    desc: Follow Prometheus logs
-    cmds:
-      - kubectl -n host-runtime logs deploy/prometheus -f
-
   logs-node-exporter:
     desc: Follow node-exporter logs from all pods
     cmds:
@@ -61,23 +56,6 @@ tasks:
     desc: Follow process-exporter logs from all pods
     cmds:
       - kubectl -n host-runtime logs ds/process-exporter -f
-
-  targets:
-    desc: Show Prometheus target state through cluster DNS
-    cmds:
-      - >
-        kubectl -n host-runtime run host-runtime-curl-targets
-        --rm -i --restart=Never --image=curlimages/curl:8.10.1 --quiet
-        --command -- curl -fsS http://prometheus.host-runtime.svc.cluster.local:9090/api/v1/targets
-
-  up:
-    desc: Query Prometheus up metric for host-runtime scrape jobs through cluster DNS
-    cmds:
-      - >
-        kubectl -n host-runtime run host-runtime-curl-up
-        --rm -i --restart=Never --image=curlimages/curl:8.10.1 --quiet
-        --command -- curl -G -fsS http://prometheus.host-runtime.svc.cluster.local:9090/api/v1/query
-        --data-urlencode 'query=up{job=~"node-exporter|process-exporter|prometheus|minio"}'
 
   node-metrics:
     desc: Fetch node-exporter metrics through cluster DNS
@@ -269,3 +247,8 @@ tasks:
     desc: Show OCO consumer contract resources in host-runtime namespace
     cmds:
       - kubectl -n host-runtime get configmap,role,rolebinding
+
+  logs-alloy:
+    desc: Follow namespace-local Alloy logs
+    cmds:
+      - kubectl -n host-runtime logs daemonset/alloy -f --tail=200
