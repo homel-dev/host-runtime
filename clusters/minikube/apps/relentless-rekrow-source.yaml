@@ -8,3 +8,6 @@ spec:
   url: https://github.com/homel-dev/relentless-rekrow.git
   ref:
     branch: main
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
