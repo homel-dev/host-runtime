@@ -3,5 +3,5 @@ kind: Kustomization
 
 resources:
   - host-runtime.yaml
-  - llm-runtime-source.yaml
-  - llm-runtime.yaml
+  - relentless-rekrow-source.yaml
+  - relentless-rekrow.yaml
