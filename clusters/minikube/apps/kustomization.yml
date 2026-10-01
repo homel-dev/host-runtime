@@ -5,3 +5,5 @@ resources:
   - host-runtime.yaml
   - relentless-rekrow-source.yaml
   - relentless-rekrow.yaml
+  - memory-steward-source.yaml
+  - memory-steward.yaml
