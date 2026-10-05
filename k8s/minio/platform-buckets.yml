@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio-platform-buckets
+  namespace: host-runtime
+  labels:
+    app.kubernetes.io/name: minio-platform-buckets
+    app.kubernetes.io/component: object-storage-bootstrap
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: minio-platform-buckets
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: minio-platform-buckets
+        app.kubernetes.io/component: object-storage-bootstrap
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mc
+          image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-uc"]
+          args:
+            - |
+              while true; do
+                if mc alias set host-runtime "$MINIO_ENDPOINT" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" --api S3v4 --path on >/dev/null \
+                  && mc mb --ignore-existing "host-runtime/$FLUX_SOURCE_ARTIFACT_BUCKET" >/dev/null \
+                  && mc anonymous set none "host-runtime/$FLUX_SOURCE_ARTIFACT_BUCKET" >/dev/null \
+                  && mc stat "host-runtime/$FLUX_SOURCE_ARTIFACT_BUCKET" >/dev/null; then
+                  if [ ! -f /tmp/flux-source-artifacts.ready ]; then
+                    printf '%s\n' "ensured MinIO bucket: $FLUX_SOURCE_ARTIFACT_BUCKET"
+                    : > /tmp/flux-source-artifacts.ready
+                  fi
+                  sleep 60
+                else
+                  rm -f /tmp/flux-source-artifacts.ready
+                  printf '%s\n' "failed to ensure MinIO bucket: $FLUX_SOURCE_ARTIFACT_BUCKET; retrying" >&2
+                  sleep 5
+                fi
+              done
+          env:
+            - name: HOME
+              value: /tmp
+            - name: MINIO_ENDPOINT
+              value: http://minio.host-runtime.svc.cluster.local:9000
+            - name: FLUX_SOURCE_ARTIFACT_BUCKET
+              value: flux-source-artifacts
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-bootstrap
+                  key: root-user
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-bootstrap
+                  key: root-password
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -uc
+                - test -f /tmp/flux-source-artifacts.ready && mc stat "host-runtime/$FLUX_SOURCE_ARTIFACT_BUCKET" >/dev/null
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

@@ -17,6 +17,8 @@ resources:
 
   - minio/statefulset.yml
   - minio/service.yml
+  - minio/platform-buckets.yml
+  - minio-consumers/networkpolicy.yml
 
   - oco-consumer/configmap-dashboard.yml
   - oco-consumer/role.yml

@@ -103,7 +103,11 @@ memory-steward
   bucket: memory-steward
 ```
 
-The exact bucket names are consumer contracts, not Host Runtime configuration.
+Application bucket names remain consumer contracts, not Host Runtime configuration. Host Runtime does own platform-infrastructure buckets required by cluster services. The current platform bucket is `flux-source-artifacts`, used by the source-controller artifact mirror.
+
+`k8s/minio/platform-buckets.yml` runs a small MinIO client reconciler. It ensures `flux-source-artifacts` exists immediately after MinIO becomes reachable, disables anonymous access, and rechecks it every 60 seconds so manual bucket deletion is repaired without requiring a new Git revision. The reconciler uses the `minio-bootstrap` root credentials only inside the trusted `host-runtime` namespace; consuming applications must continue to use scoped credentials.
+
+`k8s/minio-consumers/networkpolicy.yml` permits S3 traffic from `flux-system/source-controller` to port `9000` in addition to the existing RR and OCO consumers.
 
 ## Observability
 
@@ -130,7 +134,7 @@ task minio:console
 task minio:api
 ```
 
-`minio:start` creates/updates the bootstrap Secret, applies only `k8s/minio`, waits for the StatefulSet to become ready, and prints status. `minio:restart` refreshes the Secret and restarts the existing StatefulSet; if it is absent, it deploys it. `minio:stop` removes only the MinIO workload and Services and deliberately preserves the data PVC and bootstrap Secret.
+`minio:start` creates/updates the bootstrap Secret, applies `k8s/minio` plus the MinIO consumer NetworkPolicy, waits for the MinIO StatefulSet and platform-bucket reconciler to become ready, and prints status. Readiness of `deployment/minio-platform-buckets` means the `flux-source-artifacts` bucket exists and is reachable. `minio:restart` refreshes the Secret, restarts the existing StatefulSet, and waits for the same bucket readiness invariant; if MinIO is absent, it deploys it. `minio:stop` removes the MinIO workload, Services, and platform-bucket reconciler while deliberately preserving the data PVC and bootstrap Secret.
 
 `minio:console` and `minio:api` use `kubectl port-forward`; they do not create persistent host-facing services.
 

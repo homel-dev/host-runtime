@@ -34,7 +34,7 @@ alloy.host-runtime
 
 There is no Prometheus, VictoriaMetrics, VictoriaLogs, Loki, or Tempo backend in `host-runtime`.
 
-MinIO is a shared platform service. Consumer buckets and credentials belong to the consuming project, not to this repository.
+MinIO is a shared platform service. Application buckets and credentials belong to the consuming project. Host Runtime owns only platform-infrastructure buckets required by cluster services, including `flux-source-artifacts` for the source-controller artifact mirror.
 
 ## Prerequisites
 

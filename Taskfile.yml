@@ -161,6 +161,7 @@ tasks:
       - kubectl apply -k k8s/minio
       - kubectl apply -f k8s/minio-consumers/networkpolicy.yml
       - kubectl -n host-runtime rollout status statefulset/minio --timeout=180s
+      - kubectl -n host-runtime rollout status deployment/minio-platform-buckets --timeout=180s
       - task: minio:status
 
   minio:stop:
@@ -178,19 +179,25 @@ tasks:
     cmds:
       - task: minio:bootstrap-secret
       - |
+        set -eu
+        minio_existed=false
         if kubectl -n host-runtime get statefulset/minio >/dev/null 2>&1; then
+          minio_existed=true
+        fi
+        kubectl apply -k k8s/minio
+        if [ "$minio_existed" = true ]; then
           kubectl -n host-runtime rollout restart statefulset/minio
-        else
-          kubectl apply -k k8s/minio
         fi
       - kubectl apply -f k8s/minio-consumers/networkpolicy.yml
       - kubectl -n host-runtime rollout status statefulset/minio --timeout=180s
+      - kubectl -n host-runtime rollout status deployment/minio-platform-buckets --timeout=180s
       - task: minio:status
 
   minio:status:
-    desc: Show MinIO StatefulSet, pod, services, and persistent volume claim
+    desc: Show MinIO storage, platform-bucket reconciler, services, and persistent volume claim
     cmds:
       - kubectl -n host-runtime get statefulset/minio
+      - kubectl -n host-runtime get deployment/minio-platform-buckets
       - kubectl -n host-runtime get pod -l app.kubernetes.io/name=minio
       - kubectl -n host-runtime get svc/minio-headless svc/minio svc/minio-console
       - kubectl -n host-runtime get pvc -l app.kubernetes.io/name=minio
