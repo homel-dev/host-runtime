@@ -4,3 +4,24 @@ kind: Kustomization
 resources:
   - flux-system
   - apps
+
+images:
+  - name: ghcr.io/fluxcd/source-controller
+    newName: ghcr.io/homel-dev/source-controller
+    newTag: feat-s3-artifact-mirror
+
+patches:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: source-controller
+      namespace: flux-system
+    path: source-controller-artifact-mirror-patch.yaml
+  - target:
+      group: source.toolkit.fluxcd.io
+      version: v1
+      kind: GitRepository
+      name: flux-system
+      namespace: flux-system
+    path: flux-system-artifact-mirror-label-patch.yaml
