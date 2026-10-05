@@ -10,7 +10,7 @@ It is intentionally independent from application runtimes such as RR, LLM Runtim
 - Node Exporter for host CPU, memory, filesystem, disk, network, load, and uptime
 - Process Exporter for process/application-group visibility
 - MinIO for shared S3-compatible object storage
-- Kubernetes execution toolbox for Flux/Kubernetes/operator CLI work
+- Kubernetes execution toolbox image for external operator shell tooling
 - Grafana/OCO dashboard definition
 - Namespace-local RBAC allowing the OCO service account to read the dashboard definition
 
@@ -41,6 +41,7 @@ MinIO is a shared platform service. Application buckets and credentials belong t
 - Kubernetes cluster with a default StorageClass
 - `kubectl`
 - [Task](https://taskfile.dev/)
+- the Oh My Bash Git plugin `kex` helper loaded in the operator shell
 - access to `ghcr.io/homel-dev/host-runtime-kex-toolbox`
 - OCO `observability-backend` deployed with central Alloy ingress
 - dedicated Flux GitHub organization user with repository admin access and a bootstrap PAT
@@ -67,7 +68,7 @@ After bootstrap, Git is the desired-state deployment path. `task deploy` refresh
 
 `task delete` remains an explicit destructive/operator command and is not part of normal reconciliation. It removes workloads and configuration but intentionally retains persistent MinIO data PVCs and the MinIO bootstrap Secret. Destructive namespace/data removal requires `HOST_RUNTIME_PURGE=YES task purge`.
 
-See [Flux GitOps](docs/05_flux_gitops.md) for bootstrap, organization credentials, repository mapping, reconciliation, and recovery. See [Kubernetes execution toolbox](docs/06_kex_toolbox.md) for the operator image and `kex` integration.
+See [Flux GitOps](docs/05_flux_gitops.md) for bootstrap, organization credentials, repository mapping, reconciliation, and recovery. See [Kubernetes execution toolbox image](docs/06_kex_toolbox.md) for the image contract; the shell Git plugin owns `kex` execution and RBAC.
 
 ## Status
 
@@ -137,7 +138,7 @@ Host Runtime does not own:
 - [Metrics](docs/03_metrics.md)
 - [Shared object storage](docs/04_object_storage.md)
 - [Flux GitOps](docs/05_flux_gitops.md)
-- [Kubernetes execution toolbox](docs/06_kex_toolbox.md)
+- [Kubernetes execution toolbox image](docs/06_kex_toolbox.md)
 
 ## License
 

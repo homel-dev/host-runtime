@@ -13,6 +13,11 @@ command -v kubectl >/dev/null 2>&1 || {
   exit 1
 }
 
+declare -F kex >/dev/null 2>&1 || {
+  printf '%s\n' 'required shell helper not found: kex (load the Oh My Bash git plugin)' >&2
+  exit 1
+}
+
 current_context="$(kubectl config current-context)"
 if [ "$current_context" != "$FLUX_EXPECT_CONTEXT" ] && [ "${FLUX_ALLOW_CONTEXT_MISMATCH:-0}" != "1" ]; then
   printf '%s\n' "refusing Flux bootstrap: current context '$current_context', expected '$FLUX_EXPECT_CONTEXT'" >&2
@@ -25,7 +30,7 @@ if [ -z "${GITHUB_TOKEN:-}" ] && [ -n "${FLUX_GITHUB_TOKEN:-}" ]; then
 fi
 : "${GITHUB_TOKEN:?GITHUB_TOKEN is required; use the dedicated Flux organization user PAT}"
 
-GITHUB_TOKEN="$GITHUB_TOKEN" ./scripts/kex-run.sh bash -lc '
+GITHUB_TOKEN="$GITHUB_TOKEN" kex bash -lc '
 set -euo pipefail
 owner="$1"
 repository="$2"

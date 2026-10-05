@@ -16,13 +16,15 @@ project reconciliation root.
 
 ## Execution environment
 
-Flux is bootstrapped with the official Flux CLI. The host does not need a local
-Flux binary: `scripts/kex-run.sh` executes the CLI in the repository-owned
-Kubernetes execution toolbox image.
+Flux is bootstrapped with the official Flux CLI through the shell-provided `kex`
+helper. `host-runtime` does not own the launcher or its Kubernetes RBAC lifecycle.
+It only publishes the toolbox image consumed by that helper. The Git plugin exports
+the `kex` Bash function so repository operator scripts and Task targets can invoke
+the same launcher from child Bash processes.
 
-The toolbox contains pinned `kubectl`, Helm, Flux CLI, and `yq`, plus shell,
-Git, network, DNS, TLS, process, and database diagnostic utilities. See
-[06_kex_toolbox.md](06_kex_toolbox.md).
+The toolbox contains pinned `kubectl`, Helm, Flux CLI, `yq`, and the MinIO AIStor
+Client (`mc`), plus shell, Git, network, DNS, TLS, process, and database
+diagnostic utilities. See [06_kex_toolbox.md](06_kex_toolbox.md).
 
 ## GitHub organization identity
 
@@ -140,8 +142,8 @@ task flux:reconcile
 task flux:reconcile-host-runtime
 ```
 
-The Flux CLI runs inside the Kubernetes execution toolbox. Host-side `kubectl`
-is still used to create the short-lived execution pod.
+The Flux CLI runs inside the Kubernetes execution toolbox. The shell Git plugin
+owns creation and cleanup of the short-lived administrative Pod and RBAC.
 
 ## Recovery
 

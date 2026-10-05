@@ -30,8 +30,6 @@ jobs:
 
       - name: Validate operator scripts
         run: |
-          bash -n scripts/kex-run.sh
-          bash -n scripts/kex-deploy.sh
           bash -n scripts/flux-bootstrap.sh
           bash -n scripts/flux-status.sh
 
@@ -117,6 +115,7 @@ jobs:
             psql --version
             redis-cli --version
             sqlite3 --version
+            mc --version
           '
 
       - name: Log in to GHCR

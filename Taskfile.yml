@@ -16,22 +16,7 @@ tasks:
       - kubectl kustomize k8s/oco-consumer >/dev/null
       - kubectl kustomize clusters/minikube/apps >/dev/null
       - kubectl kustomize clusters/minikube >/dev/null
-      - bash -n scripts/kex-run.sh scripts/kex-deploy.sh scripts/flux-bootstrap.sh scripts/flux-status.sh
-
-  kex:deploy:
-    desc: Reconcile the persistent Kubernetes execution toolbox used by the shell kex helper
-    cmds:
-      - ./scripts/kex-deploy.sh
-
-  kex:status:
-    desc: Show the persistent Kubernetes execution toolbox
-    cmds:
-      - kubectl -n "${KEX_NAMESPACE:-kex}" get deployment,pod -l app.kubernetes.io/component=toolbox -o wide
-
-  kex:smoke:
-    desc: Run the core Kubernetes/GitOps CLI smoke test in an ephemeral execution pod
-    cmds:
-      - ./scripts/kex-run.sh bash -lc 'kubectl version --client && helm version --short && flux version --client && yq --version && git --version && curl --version | head -1'
+      - bash -n scripts/flux-bootstrap.sh scripts/flux-status.sh
 
   deploy:
     desc: Refresh external bootstrap state and reconcile host-runtime through Flux
@@ -41,9 +26,10 @@ tasks:
 
 
   flux:preflight:
-    desc: Check Flux prerequisites from the Kubernetes execution toolbox
+    desc: Check Flux prerequisites through the shell-provided kex helper
     cmds:
-      - ./scripts/kex-run.sh bash -lc 'flux version --client && flux check --pre'
+      - |
+        bash -c 'kex bash -lc "flux version --client && flux check --pre"'
 
   flux:bootstrap:
     desc: One-time/idempotent Flux GitHub bootstrap for Minikube
@@ -59,12 +45,12 @@ tasks:
   flux:reconcile:
     desc: Reconcile the cluster Flux root and its source
     cmds:
-      - ./scripts/kex-run.sh flux reconcile kustomization flux-system --with-source
+      - bash -c 'kex flux reconcile kustomization flux-system --with-source'
 
   flux:reconcile-host-runtime:
     desc: Reconcile Host Runtime and its source
     cmds:
-      - ./scripts/kex-run.sh flux reconcile kustomization host-runtime --with-source
+      - bash -c 'kex flux reconcile kustomization host-runtime --with-source'
 
   delete:
     desc: Delete host-runtime workloads/configuration while retaining namespace, data PVCs, and MinIO bootstrap Secret

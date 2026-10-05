@@ -1,71 +1,46 @@
-# Kubernetes execution toolbox
+# Kubernetes execution toolbox image
 
 ## Purpose
 
-The Kubernetes execution toolbox is the operator container for cluster-facing
-CLI and diagnostic work. It is owned by `host-runtime`; RR agent/runtime images
-do not carry Flux for host-cluster administration.
+`host-runtime` publishes the generic Kubernetes execution toolbox image used by
+operator shell tooling. It does not own the `kex` launcher, its RBAC lifecycle,
+or any persistent `kex` Deployment.
 
 CI builds and publishes:
 
 `ghcr.io/homel-dev/host-runtime-kex-toolbox`
 
-The image contains pinned control-plane tools:
+The shell `kex` helper is owned by the Oh My Bash Git plugin. Each invocation
+creates its own short-lived ServiceAccount, `cluster-admin` ClusterRoleBinding,
+and execution Pod, then removes them on exit.
+
+## Image contents
+
+The image contains pinned control-plane and object-storage tools:
 
 - `kubectl` v1.31.4;
 - Helm v3.18.4;
 - Flux CLI v2.9.5;
-- `yq` v4.54.1.
+- `yq` v4.54.1;
+- MinIO AIStor Client (`mc`) `RELEASE.2026-09-06T02-44-40Z`.
 
-It also contains Git/SSH, GitHub CLI, curl/wget, DNS tools, iproute2, ping,
-traceroute, mtr, netcat, socat, nmap, tcpdump, iperf3, ethtool, conntrack,
+The `mc` binary is downloaded from the official AIStor client release archive
+and verified with architecture-specific SHA-256 values during the image build.
+
+The image also contains Git/SSH, GitHub CLI, curl/wget, DNS tools, iproute2,
+ping, traceroute, mtr, netcat, socat, nmap, tcpdump, iperf3, ethtool, conntrack,
 iptables/nftables, OpenSSL, jq, rsync, strace, Python 3, PostgreSQL/Redis/SQLite
 clients, editors, and standard Unix diagnostics.
 
-## Persistent interactive toolbox
+## Launcher ownership
 
-The existing shell `kex` helper uses namespace `kex`, deployment `kex-toolbox`,
-and container `toolbox`. Reconcile that deployment to this image with:
+`host-runtime` intentionally contains no `kex-run.sh`, `kex-deploy.sh`, persistent
+`kex` Deployment, or `kex:*` Task targets. The shell plugin supplies execution
+semantics and Kubernetes RBAC.
 
-`task kex:deploy`
+The image is expected to run as UID/GID 1000 with Linux privilege escalation
+disabled. Kubernetes administrative authority comes only from the temporary
+ServiceAccount created by the shell launcher.
 
-For the shell helper itself, set:
-
-`export KEX_IMAGE=ghcr.io/homel-dev/host-runtime-kex-toolbox:main`
-
-The persistent toolbox intentionally has `automountServiceAccountToken: false`.
-It is suitable for HTTP, DNS, Git, network, and other diagnostics but does not
-carry standing cluster-admin credentials.
-
-## Ephemeral administrative execution
-
-`scripts/kex-run.sh` is for commands that must mutate the cluster. It creates a
-short-lived ServiceAccount and ClusterRoleBinding, a one-shot toolbox Pod, and a
-temporary environment Secret. The execution pod receives an in-cluster
-kubeconfig backed by its projected ServiceAccount token. All temporary resources
-are deleted on exit.
-
-Examples:
-
-```text
-./scripts/kex-run.sh kubectl get nodes -o wide
-./scripts/kex-run.sh helm version
-./scripts/kex-run.sh flux check --pre
-```
-
-An interactive administrative shell is available with:
-
-`./scripts/kex-run.sh`
-
-If `GITHUB_TOKEN` is set, the runner exposes it only through the temporary
-Secret, which is removed with the execution pod.
-
-## Image pull authentication
-
-The bootstrap toolbox image should be public because it is itself a bootstrap
-dependency. If the registry package is private, create an image pull Secret in
-the `kex` namespace and set:
-
-`KEX_IMAGE_PULL_SECRET=<secret-name>`
-
-Both the persistent deployment and ephemeral runner honor that setting.
+If the GHCR package is private, the shell launcher can be pointed at an
+appropriate image pull Secret through its own configuration.
