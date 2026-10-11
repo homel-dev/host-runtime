@@ -1,0 +1,43 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: argo
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://argoproj.github.io/argo-helm
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: argo-workflows
+  namespace: flux-system
+spec:
+  interval: 5m
+  timeout: 15m
+  targetNamespace: argo
+  install:
+    createNamespace: true
+  chart:
+    spec:
+      chart: argo-workflows
+      version: "2.0.12"
+      sourceRef:
+        kind: HelmRepository
+        name: argo
+        namespace: flux-system
+  values:
+    crds:
+      install: true
+      full: true
+    singleNamespace: false
+    controller:
+      workflowNamespaces:
+        - ms
+    workflow:
+      serviceAccount:
+        create: false
+      rbac:
+        create: false
+    server:
+      enabled: false
