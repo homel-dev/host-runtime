@@ -8,8 +8,12 @@ spec:
   retryInterval: 1m
   timeout: 15m
   path: ./k8s
-  prune: true
+  # Formerly owned database/PVC resources must NOT be deleted during the
+  # transition to the dedicated memory-steward-infra Kustomization.
+  prune: false
   wait: true
+  dependsOn:
+    - name: memory-steward-migrate
   sourceRef:
     kind: GitRepository
     name: memory-steward

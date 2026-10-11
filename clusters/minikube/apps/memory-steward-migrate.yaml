@@ -1,0 +1,18 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: memory-steward-migrate
+  namespace: flux-system
+spec:
+  interval: 5m
+  retryInterval: 1m
+  timeout: 25m
+  path: ./k8s/migrate
+  prune: true
+  wait: true
+  dependsOn:
+    - name: memory-steward-restore
+  sourceRef:
+    kind: GitRepository
+    name: memory-steward
+    namespace: flux-system

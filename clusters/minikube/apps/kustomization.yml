@@ -8,4 +8,7 @@ resources:
   - relentless-rekrow.yaml
   - relentless-rekrow-codegraph-events.yaml
   - memory-steward-source.yaml
+  - memory-steward-infra.yaml
+  - memory-steward-restore.yaml
+  - memory-steward-migrate.yaml
   - memory-steward.yaml
