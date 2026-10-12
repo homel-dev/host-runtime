@@ -1,0 +1,15 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: llm-runtime-namespace
+  namespace: flux-system
+spec:
+  interval: 5m
+  retryInterval: 1m
+  timeout: 5m
+  path: ./k8s/gitops/namespace
+  prune: false
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: llm-runtime

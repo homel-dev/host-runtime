@@ -12,3 +12,9 @@ resources:
   - memory-steward-restore.yaml
   - memory-steward-migrate.yaml
   - memory-steward.yaml
+  - llm-runtime-source.yaml
+  - llm-runtime-namespace.yaml
+  - llm-runtime-observability.yaml
+  - llm-runtime-omniroute.yaml
+  - llm-runtime-mcp-controllers.yaml
+  - llm-runtime-mcp.yaml
