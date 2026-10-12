@@ -12,6 +12,7 @@ resources:
   - memory-steward-restore.yaml
   - memory-steward-migrate.yaml
   - memory-steward.yaml
+  - memory-steward-codegraph-alert.yml
   - llm-runtime-source.yaml
   - llm-runtime-namespace.yaml
   - llm-runtime-observability.yaml
