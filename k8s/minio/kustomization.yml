@@ -7,7 +7,6 @@ namespace: host-runtime
 resources:
   - statefulset.yml
   - service.yml
-  - platform-buckets.yml
 
 labels:
   - includeSelectors: true

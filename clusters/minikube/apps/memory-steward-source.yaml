@@ -3,8 +3,6 @@ kind: GitRepository
 metadata:
   name: memory-steward
   namespace: flux-system
-  labels:
-    artifact-mirror: enabled
 spec:
   interval: 1m
   url: https://github.com/homel-dev/memory-steward.git

@@ -147,7 +147,6 @@ tasks:
       - kubectl apply -k k8s/minio
       - kubectl apply -f k8s/minio-consumers/networkpolicy.yml
       - kubectl -n host-runtime rollout status statefulset/minio --timeout=180s
-      - kubectl -n host-runtime rollout status deployment/minio-platform-buckets --timeout=180s
       - task: minio:status
 
   minio:stop:
@@ -176,14 +175,12 @@ tasks:
         fi
       - kubectl apply -f k8s/minio-consumers/networkpolicy.yml
       - kubectl -n host-runtime rollout status statefulset/minio --timeout=180s
-      - kubectl -n host-runtime rollout status deployment/minio-platform-buckets --timeout=180s
       - task: minio:status
 
   minio:status:
-    desc: Show MinIO storage, platform-bucket reconciler, services, and persistent volume claim
+    desc: Show MinIO storage, services, and persistent volume claim
     cmds:
       - kubectl -n host-runtime get statefulset/minio
-      - kubectl -n host-runtime get deployment/minio-platform-buckets
       - kubectl -n host-runtime get pod -l app.kubernetes.io/name=minio
       - kubectl -n host-runtime get svc/minio-headless svc/minio svc/minio-console
       - kubectl -n host-runtime get pvc -l app.kubernetes.io/name=minio
