@@ -1,0 +1,13 @@
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: llm-runtime--codegraph
+  namespace: flux-system
+spec:
+  providerRef:
+    name: memory-steward-codegraph
+  eventSeverity: info
+  eventSources:
+    - kind: GitRepository
+      name: llm-runtime
+      namespace: flux-system

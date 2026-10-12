@@ -19,3 +19,4 @@ resources:
   - llm-runtime-omniroute.yaml
   - llm-runtime-mcp-controllers.yaml
   - llm-runtime-mcp.yaml
+  - llm-runtime-codegraph-alert.yml
