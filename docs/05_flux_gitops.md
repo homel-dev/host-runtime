@@ -155,3 +155,31 @@ Flux organization user and rerun:
 The official bootstrap command installs/upgrades Flux, reconciles the generated
 repository files, recreates the SSH deploy key when required, and reconnects the
 cluster to Git.
+
+## OCO GitOps ownership
+
+`GitRepository/oco` tracks `homel-dev/oco` main. Two Flux Kustomizations
+separate the data plane and Grafana console, matching the OCO namespace
+boundary:
+
+- `oco-backend` reconciles `./k8s/backend` in `observability-backend`.
+- `oco-console` reconciles `./k8s` in `observability-console`, depending on
+  `oco-backend`. It consumes shared VictoriaMetrics/VictoriaLogs/Tempo endpoints.
+
+Initial adoption uses `prune: false` for both. This prevents deleting
+existing PVCs/data while taking over previously manually-applied resources.
+Reevaluate pruning only after inspecting live resource ownership and backups.
+
+OCO Grafana dashboards remain in the owning consumer repositories. The
+existing dashboard/datasource sidecars watch ConfigMaps labeled
+`grafana_dashboard=1` and `grafana_datasource=1`. Each consumer namespace
+must grant the `observability-console/observability-console` ServiceAccount
+`get/list/watch` permissions for ConfigMaps, and Grafana needs permitted
+network egress to application-owned HTTP datasources. For `llm-runtime`,
+those objects are defined in `k8s/omniroute/grafana/`.
+
+`grafana-admin` and `omniroute-grafana-readonly` are externally managed
+Kubernetes Secrets, not Flux plaintext resources. On a fresh installation,
+create `grafana-admin` using the OCO `task oco:secret-admin` command before
+reconciling the console; mint the scoped OmniRoute API token from the
+`llm-runtime` script once both deployments are running.

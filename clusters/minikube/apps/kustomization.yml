@@ -4,6 +4,9 @@ kind: Kustomization
 resources:
   - argo-workflows.yaml
   - host-runtime.yaml
+  - oco-source.yaml
+  - oco-backend.yaml
+  - oco-console.yaml
   - relentless-rekrow-source.yaml
   - relentless-rekrow.yaml
   - relentless-rekrow-codegraph-events.yaml
