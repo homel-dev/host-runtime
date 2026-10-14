@@ -4,6 +4,9 @@ kind: Kustomization
 resources:
   - argo-workflows.yaml
   - host-runtime.yaml
+  - eco-source.yaml
+  - eco-rr-access.yaml
+  - eco.yaml
   - oco-source.yaml
   - oco-backend.yaml
   - oco-console.yaml
