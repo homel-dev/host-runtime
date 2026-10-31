@@ -17,6 +17,7 @@ resources:
 
   - minio/statefulset.yml
   - minio/service.yml
+  - minio/backup-cronworkflow.yml
   - minio-consumers/networkpolicy.yml
 
   - oco-consumer/configmap-dashboard.yml

@@ -1,0 +1,73 @@
+# Host Runtime-owned offsite object copy; requires Secret minio-offsite-backup.
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: minio-offsite-backup
+  namespace: host-runtime
+spec:
+  schedule: "15 3 * * *"
+  timezone: UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  workflowSpec:
+    entrypoint: backup
+    serviceAccountName: minio-offsite-backup
+    activeDeadlineSeconds: 21600
+    templates:
+      - name: backup
+        container:
+          image: rclone/rclone:1.71.2
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              : "${BACKUP_BUCKET:?BACKUP_BUCKET is required}"
+              : "${RCLONE_CONFIG_SOURCE_ACCESS_KEY_ID:?source key required}"
+              : "${RCLONE_CONFIG_DEST_ACCESS_KEY_ID:?destination key required}"
+              stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+              prefix="${BACKUP_BUCKET%/}/minio/${stamp}"
+              rclone copy source: "dest:${prefix}" --checkers 8 --transfers 4 --retries 3 --log-level INFO
+              rclone check source: "dest:${prefix}" --one-way --size-only --log-level INFO
+              printf '%s\n' "$stamp" | rclone rcat "dest:${prefix}/_BACKUP_COMPLETE"
+          env:
+            - name: RCLONE_CONFIG_SOURCE_TYPE
+              value: s3
+            - name: RCLONE_CONFIG_SOURCE_PROVIDER
+              value: Minio
+            - name: RCLONE_CONFIG_SOURCE_ENDPOINT
+              value: http://minio.host-runtime.svc.cluster.local:9000
+            - name: RCLONE_CONFIG_SOURCE_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef: {name: minio-offsite-backup, key: source-access-key}
+            - name: RCLONE_CONFIG_SOURCE_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef: {name: minio-offsite-backup, key: source-secret-key}
+            - name: RCLONE_CONFIG_DEST_TYPE
+              value: s3
+            - name: RCLONE_CONFIG_DEST_PROVIDER
+              value: AWS
+            - name: RCLONE_CONFIG_DEST_REGION
+              valueFrom:
+                secretKeyRef: {name: minio-offsite-backup, key: aws-region}
+            - name: RCLONE_CONFIG_DEST_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef: {name: minio-offsite-backup, key: aws-access-key}
+            - name: RCLONE_CONFIG_DEST_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef: {name: minio-offsite-backup, key: aws-secret-key}
+            - name: BACKUP_BUCKET
+              valueFrom:
+                secretKeyRef: {name: minio-offsite-backup, key: backup-bucket}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+            runAsNonRoot: true
+            runAsUser: 1000
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: minio-offsite-backup
+  namespace: host-runtime

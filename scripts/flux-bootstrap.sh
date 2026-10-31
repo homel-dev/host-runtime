@@ -47,7 +47,7 @@ flux bootstrap github \
   --path="$path" \
   --version="$version" \
   --personal=false \
-  --token-auth=false \
+  --token-auth \
   --reconcile
 flux check
 flux get all -A
