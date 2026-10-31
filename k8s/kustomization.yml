@@ -25,6 +25,17 @@ resources:
   - oco-consumer/rolebinding.yml
 
   - observability
+
+# Keep foreign-namespace ingress peer selectors independent of host-runtime labels.
+# patchesJson6902 runs after the label transformer (patches runs before it).
+patchesJson6902:
+  - target:
+      group: networking.k8s.io
+      version: v1
+      kind: NetworkPolicy
+      name: minio-consumers
+    path: minio-consumers/rr-runner-selector.patch.yml
+
 labels:
   - includeSelectors: true
     pairs:
