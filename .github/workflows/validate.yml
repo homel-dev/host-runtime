@@ -8,14 +8,21 @@ permissions:
   contents: read
 
 jobs:
+  standards:
+    name: Organization repository standards
+    uses: homel-dev/.github/.github/workflows/repository-ci.yml@148da72598294e771eb9e449c63852a0e6a669ad
+    with:
+      standards_ref: 148da72598294e771eb9e449c63852a0e6a669ad
+      enforce_numbered_docs: true
+
   manifests:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install kubectl
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede
         with:
           version: v1.36.4
 
@@ -53,7 +60,8 @@ jobs:
 
       - name: Reject committed Kubernetes Secrets
         run: |
-          if grep -R --line-number --include='*.yml' --include='*.yaml' '^kind: Secret$' .; then
+          if grep -R --line-number --include='*.yml' --include='*.yaml' '^kind: Secret$' . \
+            | grep -v '^./k8s/minio/backup-secret\.example\.yml:'; then
             echo 'Do not commit Kubernetes Secret manifests. Create secrets at deploy time.' >&2
             exit 1
           fi
@@ -67,7 +75,7 @@ jobs:
       packages: write
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Image coordinates
         id: image
@@ -78,10 +86,10 @@ jobs:
           printf 'image=%s\n' "$(printf '%s' "$image" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 
       - name: Build smoke-test image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
           context: .
           file: ./toolbox/Dockerfile
@@ -120,7 +128,7 @@ jobs:
 
       - name: Log in to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -128,7 +136,7 @@ jobs:
 
       - name: Publish toolbox image
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
           context: .
           file: ./toolbox/Dockerfile

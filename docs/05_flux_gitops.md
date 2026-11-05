@@ -1,84 +1,104 @@
-# Flux GitOps
+# FLUX GITOPS
+## Minikube Cluster Reconciliation and Bootstrap Contract
+### Foundational Engineering Specification (Document 05 of 06)
+*Namespace: host-runtime • Owner: architecture-team*
 
-## Scope
+---
 
-`host-runtime` is the Flux bootstrap/control repository for the Minikube cluster.
-The cluster reconciliation root is `clusters/minikube/`. Project Kubernetes
-resources remain in their owning repositories.
+## Navigation
 
-Current project mappings are:
+**[04_object_storage.md](04_object_storage.md) ← → [06_kex_toolbox.md](06_kex_toolbox.md)**
 
-- `host-runtime` -> `https://github.com/homel-dev/host-runtime.git`, path `./k8s`
-- `llm-runtime` -> `https://github.com/homel-dev/llm-runtime.git`, path `./k8s`
+- [0. Status, Scope, and Authority](#0-status-scope-and-authority)
+- [1. Scope and Cluster Root](#1-scope-and-cluster-root)
+- [2. Execution Environment](#2-execution-environment)
+- [3. GitHub Identity and Authentication](#3-github-identity-and-authentication)
+- [4. Bootstrap](#4-bootstrap)
+- [5. Current Reconciliation Graph](#5-current-reconciliation-graph)
+- [6. Secrets](#6-secrets)
+- [7. Operations and Recovery](#7-operations-and-recovery)
+- [8. Closing Statement](#8-closing-statement)
 
-There is no cross-project `dependsOn` graph in this phase. One repository is one
-project reconciliation root.
+---
 
-## Execution environment
+## 0. Status, Scope, and Authority
 
-Flux is bootstrapped with the official Flux CLI through the shell-provided `kex`
-helper. `host-runtime` does not own the launcher or its Kubernetes RBAC lifecycle.
-It only publishes the toolbox image consumed by that helper. The Git plugin exports
-the `kex` Bash function so repository operator scripts and Task targets can invoke
-the same launcher from child Bash processes.
+**Status:** IMPLEMENTED
+**Audience:** Cluster operators and repository maintainers
+**Change policy:** Current-state contract. Repository/source mappings,
+authentication mode, paths, `prune`, `wait`, and `dependsOn` claims MUST match
+`scripts/flux-bootstrap.sh` and `clusters/minikube/`.
 
-The toolbox contains pinned `kubectl`, Helm, Flux CLI, `yq`, and the MinIO AIStor
-Client (`mc`), plus shell, Git, network, DNS, TLS, process, and database
-diagnostic utilities. See [06_kex_toolbox.md](06_kex_toolbox.md).
+[Back to top](#navigation)
 
-## GitHub organization identity
+## 1. Scope and Cluster Root
 
-For an organization-owned repository, use a dedicated GitHub user for Flux and
-make that user a member of the `homel-dev` organization.
+`host-runtime` is the Flux bootstrap/control repository for the Minikube
+cluster. The reconciliation root is:
 
-For the existing `homel-dev/host-runtime` repository, that user must have
-repository `admin` access because the SSH bootstrap manages a repository deploy
-key.
+~~~text
+clusters/minikube/
+~~~
 
-For a fine-grained PAT scoped to this existing repository, use:
+Project Kubernetes resources remain in their owning repositories. Host Runtime
+stores the Flux `GitRepository`, `Kustomization`, `HelmRepository`,
+`HelmRelease`, and notification objects that connect those repositories to this
+cluster.
 
-- `Administration`: read/write;
+The bootstrap-generated `GitRepository/flux-system` points to Host Runtime and
+is the source for `Kustomization/host-runtime`.
+
+[Back to top](#navigation)
+
+## 2. Execution Environment
+
+Flux is bootstrapped with Flux CLI `v2.9.5` through the shell-provided `kex`
+helper. Host Runtime publishes the toolbox image but does not own the launcher
+or its temporary Kubernetes RBAC lifecycle.
+
+The toolbox contains pinned `kubectl`, Helm, Flux CLI, `yq`, and MinIO AIStor
+Client versions. See [06_kex_toolbox.md](06_kex_toolbox.md).
+
+[Back to top](#navigation)
+
+## 3. GitHub Identity and Authentication
+
+`scripts/flux-bootstrap.sh` uses the GitHub bootstrap command with
+`--token-auth`. It does **not** use the SSH deploy-key bootstrap path.
+
+For the existing organization-owned repository, use a dedicated GitHub user
+with admin access to `homel-dev/host-runtime`. The current Flux GitHub bootstrap
+documentation specifies these fine-grained PAT repository permissions for an
+existing repository in token-auth mode:
+
+- `Administration`: read-only;
 - `Contents`: read/write;
 - `Metadata`: read-only.
 
-`Administration` read/write is required because this bootstrap uses SSH deploy
-keys (`--token-auth=false`).
+Export the PAT as `GITHUB_TOKEN`. `FLUX_GITHUB_TOKEN` is accepted by the wrapper
+only as a compatibility alias when `GITHUB_TOKEN` is unset.
 
-Export the PAT as `GITHUB_TOKEN`. `FLUX_GITHUB_TOKEN` remains accepted by the
-wrapper only as a compatibility alias.
+With `--token-auth`, the bootstrap PAT is used for Git over HTTPS and is stored
+in the cluster as `Secret/flux-system` in namespace `flux-system`. This Secret
+is also referenced by the authenticated secondary `GitRepository` objects for
+`eco` and `relentless-rekrow`.
 
-## Authentication model
+[Back to top](#navigation)
 
-Bootstrap uses the Flux CLI SSH deploy-key flow:
+## 4. Bootstrap
 
-`--token-auth=false`
+Host Runtime MinIO bootstrap state remains external to Git. Materialize the
+MinIO Secret, export the dedicated Flux user's PAT, then run:
 
-The PAT is used by the CLI to call the GitHub API during bootstrap. Flux creates
-an SSH key pair, registers the public key as the repository deploy key, and
-stores the private key in the `flux-system/flux-system` Kubernetes Secret. The
-PAT itself is not stored as the Git source credential.
-
-The deploy key is read-only. Do not add `--read-write-key` unless a later design
-explicitly enables Flux write-back such as image automation.
-
-Do not hand-create a username/password Git Secret for `GitRepository/flux-system`.
-
-## Bootstrap
-
-The Host Runtime MinIO bootstrap Secret remains external to Git. Materialize it
-through the existing operator task, export the dedicated Flux user's PAT, then
-bootstrap:
-
-```text
+~~~bash
 task minio:bootstrap-secret
 export GITHUB_TOKEN=...
 task flux:bootstrap
-```
+~~~
 
-The bootstrap wrapper validates the current Kubernetes context, creates a
-short-lived Kubernetes execution pod, and runs:
+The wrapper validates the active Kubernetes context before invoking:
 
-```text
+~~~text
 flux check --pre
 flux bootstrap github \
   --owner=homel-dev \
@@ -87,99 +107,98 @@ flux bootstrap github \
   --path=clusters/minikube \
   --version=v2.9.5 \
   --personal=false \
-  --token-auth=false \
+  --token-auth \
   --reconcile
 flux check
 flux get all -A
-```
+~~~
 
 `flux bootstrap github` owns the generated files under
 `clusters/minikube/flux-system/`, including `gotk-components.yaml`,
-`gotk-sync.yaml`, and its Kustomize file. Do not replace controller installation
-with a remote Kustomize reference to Flux release assets.
+`gotk-sync.yaml`, and `kustomization.yaml`.
 
-## Reconciliation
+[Back to top](#navigation)
 
-`Kustomization/flux-system` reconciles `./clusters/minikube` from the
-`host-runtime` repository.
+## 5. Current Reconciliation Graph
 
-`Kustomization/host-runtime` uses the bootstrap-generated
-`GitRepository/flux-system` source and reconciles `./k8s`.
+The checked-in cluster root currently declares the following sources and
+Kustomizations.
 
-`GitRepository/llm-runtime` is public and `Kustomization/llm-runtime` reconciles
-its `./k8s` root.
+| Source | Kustomization(s) and path | Current reconciliation policy |
+| --- | --- | --- |
+| bootstrap `flux-system` (`host-runtime`) | `host-runtime` → `./k8s` | `prune: true`, `wait: true` |
+| `eco` | `eco-rr-access` → `./k8s/rr-access`; `eco` → `./k8s` | access: `prune: true`; main: `prune: false`, depends on access |
+| `llm-runtime` | `llm-runtime-namespace` → `./k8s/gitops/namespace`; `llm-runtime-observability` → `./k8s/observability`; `llm-runtime-omniroute` → `./k8s/gitops/omniroute`; `llm-runtime-mcp-controllers` → `./k8s/gitops/mcp-controllers`; `llm-runtime-mcp` → `./k8s/mcp` | mixed `prune`; all declare `wait: true`; dependencies are explicit in manifests |
+| `memory-steward` | `memory-steward-infra` → `./k8s/infra`; `memory-steward-restore` → `./k8s/restore`; `memory-steward-migrate` → `./k8s/migrate`; `memory-steward` → `./k8s` | infra/main: `prune: false`; restore/migrate: `prune: true`; all `wait: true`; ordered by `dependsOn` |
+| `oco` | `oco-backend` → `./k8s/backend`; `oco-console` → `./k8s` | both `prune: false`, `wait: true`; console depends on backend |
+| `relentless-rekrow` | `relentless-rekrow` → `./rr-pi/k8s` | `prune: true`, `wait: true` |
 
-Project Kustomizations use pruning and health waiting.
+`eco` and `relentless-rekrow` reference `Secret/flux-system` for Git
+credentials. `llm-runtime`, `memory-steward`, and `oco` currently use HTTPS
+GitHub sources without a `secretRef`.
 
-## Secrets
+The cluster root also installs Argo Workflows chart `2.0.12` into namespace
+`argo`, with the controller configured to watch workflows in `ms` and
+`host-runtime` and the Argo server disabled.
 
-The following remain bootstrap/runtime state until separately migrated to SOPS
-or another declarative secret mechanism:
+Notification objects forward selected Git source events for
+`memory-steward`, `llm-runtime`, and `relentless-rekrow` to the Memory Steward
+CodeGraph controller endpoint declared in the manifests.
+
+[Back to top](#navigation)
+
+## 6. Secrets
+
+Current non-Git state includes:
 
 - `host-runtime/minio-bootstrap`;
-- the bootstrap-generated Flux SSH credential Secret;
-- consumer credentials generated by MinIO provisioning;
+- `flux-system/flux-system`, containing the token-auth Git credential generated
+  by Flux bootstrap;
+- consumer credentials generated by Host Runtime MinIO provisioning;
+- `host-runtime/minio-offsite-backup` when offsite object copy is enabled;
 - provider credentials owned by other projects.
 
-Do not commit those Secrets.
+These values MUST NOT be committed as plaintext Kubernetes Secret manifests.
+The committed `k8s/minio/backup-secret.example.yml` contains placeholders only
+and exists solely to document the required keys.
 
-## Image publication ordering
+[Back to top](#navigation)
 
-Application CI publishes an immutable digest or commit-specific image tag first.
-Only after publication does the owning repository update the desired-state image
-reference. Flux reconciles that Git change.
-
-Flux image automation is not enabled in this phase.
-
-## Operations
+## 7. Operations and Recovery
 
 Use:
 
-```text
+~~~text
 task flux:preflight
 task flux:status
 task flux:reconcile
 task flux:reconcile-host-runtime
-```
+~~~
 
 The Flux CLI runs inside the Kubernetes execution toolbox. The shell Git plugin
-owns creation and cleanup of the short-lived administrative Pod and RBAC.
+owns creation and cleanup of the short-lived administrative execution Pod and
+RBAC.
 
-## Recovery
+If Flux controllers or the bootstrap Git credential are lost, export a valid
+`GITHUB_TOKEN` for the dedicated Flux organization user and rerun:
 
-If Flux controllers are removed, export a valid `GITHUB_TOKEN` for the dedicated
-Flux organization user and rerun:
+~~~bash
+task flux:bootstrap
+~~~
 
-`task flux:bootstrap`
+The wrapper reruns the official idempotent bootstrap flow and reconnects the
+cluster using the repository's current token-auth configuration.
 
-The official bootstrap command installs/upgrades Flux, reconciles the generated
-repository files, recreates the SSH deploy key when required, and reconnects the
-cluster to Git.
+[Back to top](#navigation)
 
-## OCO GitOps ownership
+## 8. Closing Statement
 
-`GitRepository/oco` tracks `homel-dev/oco` main. Two Flux Kustomizations
-separate the data plane and Grafana console, matching the OCO namespace
-boundary:
+Host Runtime owns the Minikube Flux control root and bootstrap wrapper. Each
+application repository remains authoritative for its own manifests; this
+repository only declares how those sources are reconciled into the cluster.
 
-- `oco-backend` reconciles `./k8s/backend` in `observability-backend`.
-- `oco-console` reconciles `./k8s` in `observability-console`, depending on
-  `oco-backend`. It consumes shared VictoriaMetrics/VictoriaLogs/Tempo endpoints.
+[Back to top](#navigation)
 
-Initial adoption uses `prune: false` for both. This prevents deleting
-existing PVCs/data while taking over previously manually-applied resources.
-Reevaluate pruning only after inspecting live resource ownership and backups.
+---
 
-OCO Grafana dashboards remain in the owning consumer repositories. The
-existing dashboard/datasource sidecars watch ConfigMaps labeled
-`grafana_dashboard=1` and `grafana_datasource=1`. Each consumer namespace
-must grant the `observability-console/observability-console` ServiceAccount
-`get/list/watch` permissions for ConfigMaps, and Grafana needs permitted
-network egress to application-owned HTTP datasources. For `llm-runtime`,
-those objects are defined in `k8s/omniroute/grafana/`.
-
-`grafana-admin` and `omniroute-grafana-readonly` are externally managed
-Kubernetes Secrets, not Flux plaintext resources. On a fresh installation,
-create `grafana-admin` using the OCO `task oco:secret-admin` command before
-reconciling the console; mint the scoped OmniRoute API token from the
-`llm-runtime` script once both deployments are running.
+**END OF DOCUMENT 05**

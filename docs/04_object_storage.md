@@ -1,127 +1,209 @@
-# Shared Object Storage
+# SHARED OBJECT STORAGE
+## MinIO Runtime, Consumer Isolation, and Offsite Copy Contract
+### Foundational Engineering Specification (Document 04 of 06)
+*Namespace: host-runtime • Owner: architecture-team*
 
-## Purpose
+---
 
-`host-runtime` owns a single-node MinIO object store as a shared platform storage primitive.
+## Navigation
 
-The service is intentionally consumer-neutral. RR, Memory Steward, and future workloads can use separate buckets and credentials without owning separate object-store deployments.
+**[03_metrics.md](03_metrics.md) ← → [05_flux_gitops.md](05_flux_gitops.md)**
 
-MinIO is not part of the observability presentation layer and is not coupled to Grafana/OCO.
+- [0. Status, Scope, and Authority](#0-status-scope-and-authority)
+- [1. Purpose and Placement](#1-purpose-and-placement)
+- [2. Distribution and License](#2-distribution-and-license)
+- [3. Local Configuration and Bootstrap Secret](#3-local-configuration-and-bootstrap-secret)
+- [4. Storage and Lifecycle](#4-storage-and-lifecycle)
+- [5. Consumer Isolation](#5-consumer-isolation)
+- [6. RR Run-Artifact Integration](#6-rr-run-artifact-integration)
+- [7. Offsite Object Copy](#7-offsite-object-copy)
+- [8. Observability](#8-observability)
+- [9. Operations](#9-operations)
+- [10. Closing Statement](#10-closing-statement)
 
-## Placement
+---
 
-The object store runs in the `host-runtime` namespace:
+## 0. Status, Scope, and Authority
 
-```text
-minio.host-runtime.svc.cluster.local:9000
-```
+**Status:** IMPLEMENTED
+**Audience:** Platform operators and storage consumers
+**Change policy:** Keep service endpoints, persistence, consumer network access,
+provisioning tasks, and backup behavior synchronized with `k8s/minio/`,
+`k8s/minio-consumers/`, `Taskfile.yml`, and `k8s/minio/BACKUP.md`.
 
-The Console is cluster-local on:
+[Back to top](#navigation)
 
-```text
-minio-console.host-runtime.svc.cluster.local:9001
-```
+## 1. Purpose and Placement
 
-Use `task minio:console` for local administrative access instead of exposing the Console with a NodePort or LoadBalancer.
+`host-runtime` owns a single-node MinIO AIStor object store as a shared platform
+storage primitive. It is consumer-neutral: application projects own object
+meaning and scoped credentials rather than deploying separate object stores.
 
-## Distribution and license
+The S3 and Console services are cluster-local:
 
-The deployment uses MinIO AIStor Free in a single-node topology compatible with the Free-tier limits. It intentionally uses a direct StatefulSet rather than installing the AIStor Kubernetes Operator, keeping the local platform footprint small. Current upstream Community Edition binaries and container images are no longer maintained; the old `minio/minio` image is intentionally not used here.
+~~~text
+S3:      minio.host-runtime.svc.cluster.local:9000
+Console: minio-console.host-runtime.svc.cluster.local:9001
+~~~
 
-AIStor Free requires a MinIO license file. Keep the license and root credentials outside Git and load them into the `minio-bootstrap` Kubernetes Secret.
+Use `task minio:console` for local administrative UI access instead of exposing
+the Console with a NodePort or LoadBalancer.
 
-Official documentation:
+[Back to top](#navigation)
+
+## 2. Distribution and License
+
+The StatefulSet uses MinIO AIStor in a single-node topology and mounts a license
+from the external `minio-bootstrap` Secret. The repository intentionally uses a
+direct StatefulSet rather than the AIStor Kubernetes Operator.
+
+The license file and root credentials MUST remain outside Git.
+
+Official MinIO documentation:
 
 - https://docs.min.io/aistor/operations/licenses/
 - https://docs.min.io/aistor/installation/kubernetes/install/deploy-aistor-on-kubernetes/
 
-## Local configuration and bootstrap Secret
+[Back to top](#navigation)
 
-The operator-facing configuration lives in local `minio.env`, which is ignored by Git. The repository contains `minio.env.example` with lab defaults:
+## 3. Local Configuration and Bootstrap Secret
 
-```text
+Operator-facing configuration lives in local `minio.env`, which is ignored by
+Git. The committed `minio.env.example` contains lab placeholders:
+
+~~~text
 MINIO_ROOT_USER=minioadmin
 MINIO_ROOT_PASSWORD=minioadmin-change-me
 MINIO_LICENSE_FILE=./minio.license
-```
+~~~
 
-The normal first-run path is simply:
+The normal local first-run path is:
 
-```bash
-# Put the AIStor license at ./minio.license, then:
+~~~bash
 task minio:start
-```
+~~~
 
-If `minio.env` does not exist, `minio:start` creates it automatically from `minio.env.example`. `task minio:restart` and the full `task deploy` path use the same local file; no shell exports are required. Change `MINIO_LICENSE_FILE` in `minio.env` only if the license lives somewhere else. Both `minio.env` and `minio.license` are ignored by Git. `task minio:init` remains available when you only want to materialize/edit the local file without starting MinIO.
+If `minio.env` does not exist, `task minio:init` materializes it from the
+example. `task minio:bootstrap-secret` creates or updates
+`host-runtime/minio-bootstrap` with:
 
-The committed credentials are examples for an isolated local/lab deployment. Change them before exposing MinIO outside that environment. Applications must never use these root credentials.
-
-The bootstrap task materializes the local values into Kubernetes:
-
-```bash
-task minio:bootstrap-secret
-```
-
-The resulting `minio-bootstrap` Secret contains:
-
-```text
+~~~text
 root-user
 root-password
 minio.license
-```
+~~~
 
-No credential or license value is committed to the repository.
+Applications MUST NOT use these root credentials.
 
-## Storage
+[Back to top](#navigation)
 
-The StatefulSet creates one `ReadWriteOnce` PVC requesting `50Gi` from the cluster default StorageClass.
+## 4. Storage and Lifecycle
 
-The PVC is generated from the StatefulSet `volumeClaimTemplates`. `task delete` intentionally removes workloads/configuration without deleting the namespace, generated PVC, or MinIO bootstrap Secret. The destructive `task purge` path requires `HOST_RUNTIME_PURGE=YES` and deletes the entire namespace, including object data.
+The MinIO StatefulSet requests one `ReadWriteOnce` PVC of `50Gi` from the
+cluster default StorageClass.
 
-Change the requested capacity in `k8s/minio/statefulset.yml` before first deployment if a different size is required.
+`task delete` deletes labeled Deployments, DaemonSets, StatefulSets, Services,
+ConfigMaps, Roles, and RoleBindings. It does not delete the namespace,
+StatefulSet-generated PVC, `minio-bootstrap` Secret, CronWorkflow,
+ServiceAccounts, or NetworkPolicies. `task minio:stop` deletes only the MinIO
+sub-Kustomization and also preserves its PVC and bootstrap Secret.
 
-This topology is intended for a single-node lab/platform runtime. It is not an HA object-storage design.
+`task purge` is destructive. It requires `HOST_RUNTIME_PURGE=YES` and deletes
+the entire `host-runtime` namespace, including MinIO object data and bootstrap
+credentials.
 
-## Consumer isolation
+This is a single-node lab/platform topology, not an HA storage design.
 
-Do not give applications the MinIO root credentials.
+[Back to top](#navigation)
 
-Each consumer should own:
+## 5. Consumer Isolation
 
-- its bucket namespace;
-- a dedicated MinIO user/access key;
-- an IAM policy limited to the required bucket prefixes;
-- its own Kubernetes Secret in the consumer namespace.
+Applications MUST use dedicated scoped identities rather than MinIO root
+credentials.
 
-Example ownership model:
+`k8s/minio-consumers/networkpolicy.yml` currently permits:
 
-```text
-rr
-  bucket: rr-artifacts
+| Source | Pod scope | Ports |
+| --- | --- | --- |
+| `host-runtime` | any pod | `9000`, `9001` |
+| `rr` | `app.kubernetes.io/name=rr-pi-runner` | `9000` |
+| `observability-console` | `app.kubernetes.io/name=grafana` | `9000` |
+| `ms` | any pod | `9000` |
+| `eco` | any pod | `9000` |
 
-memory-steward
-  bucket: memory-steward
-```
+No Flux `source-controller` ingress rule exists. Host Runtime defines no MinIO
+bucket, mirror, or consumer rule for Flux source artifacts.
 
-Application bucket names remain consumer contracts, not Host Runtime configuration. `source-controller` serves Flux artifacts directly; it does not mirror them into MinIO.
+Bucket names, IAM policies, and credentials remain consumer contracts unless a
+specific provisioning workflow is implemented in this repository.
 
-`k8s/minio-consumers/networkpolicy.yml` permits S3 traffic for the RR runner and OCO consumers, without granting Flux `source-controller` access.
+[Back to top](#navigation)
 
-## Observability
+## 6. RR Run-Artifact Integration
 
-MinIO exposes Prometheus metrics on the internal S3 service. This deployment sets `MINIO_PROMETHEUS_AUTH_TYPE=public` and does not expose the service outside the cluster.
+`task minio:rr-artifacts` is the implemented consumer-specific provisioning
+workflow. It:
 
-Host Runtime Prometheus scrapes:
+1. creates or reuses scoped RR writer and OCO reader credentials;
+2. creates the `rr-artifacts` bucket;
+3. applies bucket-scoped MinIO policies;
+4. disables anonymous bucket access;
+5. writes the RR writer configuration to `rr/rr-artifact-store`;
+6. writes the OCO read-only configuration to
+   `observability-console/oco-artifact-store`;
+7. deletes the temporary provisioning Secret and Job when complete.
 
-```text
-http://minio.host-runtime.svc.cluster.local:9000/minio/metrics/v3
-```
+RR owns artifact semantics and publication. OCO owns presentation. Host Runtime
+owns only the storage/provisioning boundary.
 
-If the cluster later adopts namespace default-deny policies or externally exposes the S3 API, replace public metrics with a dedicated Prometheus credential/token.
+[Back to top](#navigation)
 
-## Operations
+## 7. Offsite Object Copy
 
-```bash
+The root `k8s/kustomization.yml` includes
+`k8s/minio/backup-cronworkflow.yml`. The CronWorkflow runs at `03:15 UTC` and
+copies all objects visible to its source identity into an existing external S3
+bucket under:
+
+~~~text
+s3://<backup-bucket>/minio/<UTC-timestamp>/...
+~~~
+
+It then runs `rclone check --one-way --size-only` and writes
+`_BACKUP_COMPLETE` last.
+
+The workflow requires the external `host-runtime/minio-offsite-backup` Secret.
+The committed `k8s/minio/backup-secret.example.yml` is an example only and MUST
+NOT be applied with placeholder values.
+
+The Minikube Flux root installs Argo Workflows and configures its controller to
+watch `host-runtime`. The local `k8s/minio` sub-Kustomization intentionally does
+not include the backup CronWorkflow; `task minio:start` therefore starts MinIO
+without installing the offsite backup object.
+
+This copy is not an atomic MinIO snapshot and does not preserve MinIO IAM,
+bucket configuration, or version history. See
+[../k8s/minio/BACKUP.md](../k8s/minio/BACKUP.md) for the operator contract.
+
+[Back to top](#navigation)
+
+## 8. Observability
+
+The StatefulSet configures `MINIO_PROMETHEUS_AUTH_TYPE=public`, but the current
+Host Runtime Alloy configuration does not scrape MinIO. No Host Runtime
+dashboard query currently consumes MinIO metrics.
+
+The S3 and Console Services remain ClusterIP-only. Any future MinIO scrape MUST
+be added explicitly to `k8s/observability/alloy/alloy.yml` and documented in
+`03_metrics.md`.
+
+[Back to top](#navigation)
+
+## 9. Operations
+
+Available MinIO tasks are:
+
+~~~bash
 task minio:init
 task minio:start
 task minio:stop
@@ -130,17 +212,23 @@ task minio:status
 task minio:logs
 task minio:console
 task minio:api
-```
+task minio:rr-artifacts
+task minio:rr-artifacts-status
+~~~
 
-`minio:start` creates/updates the bootstrap Secret, applies `k8s/minio` plus the MinIO consumer NetworkPolicy, waits for the MinIO StatefulSet to become ready, and prints status. `minio:restart` refreshes the Secret, restarts the existing StatefulSet, and waits for readiness; if MinIO is absent, it deploys it. `minio:stop` removes the MinIO workload and Services while deliberately preserving the data PVC and bootstrap Secret.
+`minio:console` and `minio:api` use `kubectl port-forward`; they do not create
+persistent host-facing services.
 
-`minio:console` and `minio:api` use `kubectl port-forward`; they do not create persistent host-facing services.
+[Back to top](#navigation)
 
+## 10. Closing Statement
 
-## RR run-artifact integration
+Host Runtime owns a persistent shared S3 service and narrowly defined platform
+operations around it. Consumer semantics, external S3 provisioning, and full
+disaster recovery remain outside this repository.
 
-`task minio:rr-artifacts` provisions the `rr-artifacts` bucket, an RR writer identity scoped to that bucket, and an OCO read-only identity. It publishes the writer S3 configuration as Secret `rr/rr-artifact-store` and the reader configuration as Secret `observability-console/oco-artifact-store`. It also applies `k8s/minio-consumers/networkpolicy.yml`, which permits S3 access from the trusted RR runner and the Observability Console while keeping MinIO itself ClusterIP-only.
+[Back to top](#navigation)
 
-Anonymous bucket access is explicitly disabled. OCO authenticates to MinIO with the read-only identity and is the browser-facing authenticated proxy. RR runners write `runs/<run-id>/...` after every terminal worker invocation. The source `workspace/` tree is deliberately excluded from run-artifact publication.
+---
 
-Host Runtime still owns only storage. RR owns artifact meaning and publication; OCO owns presentation.
+**END OF DOCUMENT 04**

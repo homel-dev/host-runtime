@@ -1,46 +1,112 @@
-# Kubernetes execution toolbox image
+# KUBERNETES EXECUTION TOOLBOX IMAGE
+## Image Contents, Publication, and Ownership Boundary
+### Foundational Engineering Specification (Document 06 of 06)
+*Namespace: host-runtime • Owner: architecture-team*
 
-## Purpose
+---
+
+## Navigation
+
+**[05_flux_gitops.md](05_flux_gitops.md) ← → [README.md](../README.md)**
+
+- [0. Status, Scope, and Authority](#0-status-scope-and-authority)
+- [1. Purpose](#1-purpose)
+- [2. Image Publication](#2-image-publication)
+- [3. Pinned Toolchain](#3-pinned-toolchain)
+- [4. Launcher Ownership](#4-launcher-ownership)
+- [5. Security Boundary](#5-security-boundary)
+- [6. Closing Statement](#6-closing-statement)
+
+---
+
+## 0. Status, Scope, and Authority
+
+**Status:** IMPLEMENTED
+**Audience:** Operators and toolbox-image maintainers
+**Change policy:** Tool versions MUST match `toolbox/Dockerfile`; publication
+claims MUST match `.github/workflows/validate.yml`. Launcher behavior outside
+this repository MUST NOT be described as a Host Runtime guarantee.
+
+[Back to top](#navigation)
+
+## 1. Purpose
 
 `host-runtime` publishes the generic Kubernetes execution toolbox image used by
-operator shell tooling. It does not own the `kex` launcher, its RBAC lifecycle,
-or any persistent `kex` Deployment.
+external operator shell tooling. It does not own the `kex` launcher, its RBAC
+lifecycle, or a persistent `kex` Deployment.
 
-CI builds and publishes:
+The Dockerfile runs the image as UID/GID `1000:1000` with working directory
+`/work`.
 
-`ghcr.io/homel-dev/host-runtime-kex-toolbox`
+[Back to top](#navigation)
 
-The shell `kex` helper is owned by the Oh My Bash Git plugin. Each invocation
-creates its own short-lived ServiceAccount, `cluster-admin` ClusterRoleBinding,
-and execution Pod, then removes them on exit.
+## 2. Image Publication
 
-## Image contents
+GitHub Actions builds and smoke-tests the toolbox on every validation run. On a
+push to `main`, the workflow publishes:
 
-The image contains pinned control-plane and object-storage tools:
+~~~text
+ghcr.io/homel-dev/host-runtime-kex-toolbox:main
+ghcr.io/homel-dev/host-runtime-kex-toolbox:sha-<git-sha>
+~~~
 
-- `kubectl` v1.31.4;
-- Helm v3.18.4;
-- Flux CLI v2.9.5;
-- `yq` v4.54.1;
+The smoke test executes the installed CLI tools from the built image before the
+publish step.
+
+[Back to top](#navigation)
+
+## 3. Pinned Toolchain
+
+`toolbox/Dockerfile` currently pins:
+
+- `kubectl` `v1.31.4`;
+- Helm `v3.18.4`;
+- Flux CLI `v2.9.5`;
+- `yq` `v4.54.1`;
 - MinIO AIStor Client (`mc`) `RELEASE.2026-09-06T02-44-40Z`.
 
-The `mc` binary is downloaded from the official AIStor client release archive
-and verified with architecture-specific SHA-256 values during the image build.
+The build verifies downloaded `kubectl` and Helm artifacts against upstream
+checksums and verifies Flux, `yq`, and `mc` with architecture-specific SHA-256
+values encoded in the Dockerfile.
 
 The image also contains Git/SSH, GitHub CLI, curl/wget, DNS tools, iproute2,
 ping, traceroute, mtr, netcat, socat, nmap, tcpdump, iperf3, ethtool, conntrack,
-iptables/nftables, OpenSSL, jq, rsync, strace, Python 3, PostgreSQL/Redis/SQLite
-clients, editors, and standard Unix diagnostics.
+iptables/nftables, OpenSSL, jq, rsync, strace, Python 3,
+PostgreSQL/Redis/SQLite clients, editors, and standard Unix diagnostics.
 
-## Launcher ownership
+[Back to top](#navigation)
 
-`host-runtime` intentionally contains no `kex-run.sh`, `kex-deploy.sh`, persistent
-`kex` Deployment, or `kex:*` Task targets. The shell plugin supplies execution
-semantics and Kubernetes RBAC.
+## 4. Launcher Ownership
 
-The image is expected to run as UID/GID 1000 with Linux privilege escalation
-disabled. Kubernetes administrative authority comes only from the temporary
-ServiceAccount created by the shell launcher.
+`host-runtime` intentionally contains no `kex-run.sh`, `kex-deploy.sh`,
+persistent `kex` Deployment, or `kex:*` Task targets.
 
-If the GHCR package is private, the shell launcher can be pointed at an
-appropriate image pull Secret through its own configuration.
+The shell-provided `kex` helper is an external dependency of the operator
+workflow. `scripts/flux-bootstrap.sh` and `scripts/flux-status.sh` explicitly
+fail when the Bash function is unavailable.
+
+[Back to top](#navigation)
+
+## 5. Security Boundary
+
+The Docker image itself defines a non-root runtime user. Kubernetes
+ServiceAccounts, ClusterRoleBindings, Pod security context, cleanup behavior,
+and image-pull credentials are launcher-owned and are not defined by this
+repository.
+
+If the GHCR package is private, the launcher must provide suitable registry
+credentials. Host Runtime does not commit those credentials.
+
+[Back to top](#navigation)
+
+## 6. Closing Statement
+
+Host Runtime owns a reproducible operator-tool image. Invocation semantics and
+cluster authorization remain outside this repository and must not be inferred
+from the image alone.
+
+[Back to top](#navigation)
+
+---
+
+**END OF DOCUMENT 06**
