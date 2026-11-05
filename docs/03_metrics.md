@@ -41,6 +41,16 @@ http://alloy.observability-backend.svc.cluster.local:12347/api/v1/metrics/write
 VictoriaMetrics in `observability-backend` is the standard metrics backend.
 Host Runtime has no local Prometheus and no metrics PVC.
 
+~~~mermaid
+flowchart LR
+    NE["Node Exporter<br/>:9100"] -->|15 s scrape| A["Host Runtime Alloy"]
+    PE["Process Exporter<br/>:9256"] -->|15 s scrape| A
+    AS["Alloy self metrics<br/>:12345"] -->|15 s scrape| A
+    A -->|Prometheus remote write<br/>:12347| OA["OCO Alloy"]
+    OA --> VM["VictoriaMetrics"]
+    G["OCO Grafana<br/>Host Runtime dashboard"] -->|queries| VM
+~~~
+
 The Node Exporter and Process Exporter scrape targets carry:
 
 ~~~text

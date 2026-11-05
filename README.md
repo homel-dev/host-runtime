@@ -1,5 +1,9 @@
 # Host Runtime
 
+[![CI](https://github.com/homel-dev/host-runtime/actions/workflows/validate.yml/badge.svg)](https://github.com/homel-dev/host-runtime/actions/workflows/validate.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/homel-dev/host-runtime?branch=main)](https://github.com/homel-dev/host-runtime/commits/main)
+
 Host Runtime provides host-level telemetry collectors and shared object storage
 for a single-host Kubernetes/lab environment.
 
@@ -22,21 +26,41 @@ stored in a namespace-local metrics or log backend.
 
 ## Architecture
 
-~~~text
-host-runtime namespace
-├── alloy
-├── node-exporter
-├── process-exporter
-├── minio
-├── minio-offsite-backup CronWorkflow
-└── oco-consumer
-    ├── dashboard ConfigMap
-    └── read-only RBAC
+~~~mermaid
+flowchart LR
+    subgraph HR["host-runtime"]
+        NE["Node Exporter :9100"]
+        PE["Process Exporter :9256"]
+        PODS["Namespace pod logs / OTLP clients"]
+        A["Grafana Alloy"]
+        M["MinIO AIStor :9000"]
+        B["Argo CronWorkflow<br/>minio-offsite-backup"]
+        D["Grafana dashboard ConfigMap"]
+    end
 
-alloy.host-runtime
-├── metrics ──> alloy.observability-backend:12347 ──> VictoriaMetrics
-├── logs    ──> alloy.observability-backend:12348 ──> VictoriaLogs
-└── OTLP    ──> alloy.observability-backend:4317  ──> VictoriaMetrics / VictoriaLogs / Tempo
+    NE -->|Prometheus scrape| A
+    PE -->|Prometheus scrape| A
+    PODS -->|logs / OTLP| A
+
+    subgraph OCO["OCO"]
+        OA["Central Alloy"]
+        VM["VictoriaMetrics"]
+        VL["VictoriaLogs"]
+        T["Tempo"]
+        G["Grafana"]
+    end
+
+    A -->|remote write :12347| OA
+    A -->|Loki push :12348| OA
+    A -->|OTLP gRPC :4317| OA
+    OA --> VM
+    OA --> VL
+    OA --> T
+    D -->|read-only RBAC discovery| G
+    G -->|victoriametrics datasource| VM
+
+    M --> B
+    B -->|rclone copy + check| S3["External S3 backup bucket"]
 ~~~
 
 There is no Prometheus, VictoriaMetrics, VictoriaLogs, Loki, or Tempo backend

@@ -49,6 +49,25 @@ OTLP gRPC:            alloy.observability-backend.svc.cluster.local:4317
 Central Alloy routes these signals to VictoriaMetrics, VictoriaLogs, and Tempo
 in `observability-backend`.
 
+~~~mermaid
+flowchart LR
+    subgraph HR["host-runtime"]
+        NE["Node Exporter"] -->|scrape| A["Local Alloy"]
+        PE["Process Exporter"] -->|scrape| A
+        P["Pod logs / OTLP clients"] --> A
+        D["Dashboard ConfigMap"]
+    end
+
+    A -->|metrics :12347| OA["OCO Alloy"]
+    A -->|logs :12348| OA
+    A -->|OTLP :4317| OA
+    OA --> VM["VictoriaMetrics"]
+    OA --> VL["VictoriaLogs"]
+    OA --> T["Tempo"]
+    D -->|Role/RoleBinding discovery| G["OCO Grafana"]
+    G -->|victoriametrics UID| VM
+~~~
+
 [Back to top](#navigation)
 
 ## 2. Namespace Contract

@@ -124,6 +124,33 @@ flux get all -A
 The checked-in cluster root currently declares the following sources and
 Kustomizations.
 
+~~~mermaid
+flowchart TD
+    HRS["GitRepository flux-system<br/>(host-runtime)"] --> HR["host-runtime<br/>./k8s"]
+
+    ES["GitRepository eco"] --> EA["eco-rr-access<br/>./k8s/rr-access"]
+    EA --> E["eco<br/>./k8s"]
+
+    LS["GitRepository llm-runtime"] --> LN["llm-runtime-namespace<br/>./k8s/gitops/namespace"]
+    LN --> LO["llm-runtime-observability<br/>./k8s/observability"]
+    LN --> LR["llm-runtime-omniroute<br/>./k8s/gitops/omniroute"]
+    LN --> LC["llm-runtime-mcp-controllers<br/>./k8s/gitops/mcp-controllers"]
+    LO --> LM["llm-runtime-mcp<br/>./k8s/mcp"]
+    LC --> LM
+
+    MS["GitRepository memory-steward"] --> MI["memory-steward-infra<br/>./k8s/infra"]
+    MI --> MR["memory-steward-restore<br/>./k8s/restore"]
+    MR --> MM["memory-steward-migrate<br/>./k8s/migrate"]
+    MM --> MA["memory-steward<br/>./k8s"]
+
+    OS["GitRepository oco"] --> OB["oco-backend<br/>./k8s/backend"]
+    OB --> OC["oco-console<br/>./k8s"]
+
+    RS["GitRepository relentless-rekrow"] --> RR["relentless-rekrow<br/>./rr-pi/k8s"]
+
+    AR["HelmRepository argo"] --> AW["HelmRelease argo-workflows<br/>chart 2.0.12"]
+~~~
+
 | Source | Kustomization(s) and path | Current reconciliation policy |
 | --- | --- | --- |
 | bootstrap `flux-system` (`host-runtime`) | `host-runtime` → `./k8s` | `prune: true`, `wait: true` |

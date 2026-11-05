@@ -131,6 +131,17 @@ credentials.
 | `ms` | any pod | `9000` |
 | `eco` | any pod | `9000` |
 
+~~~mermaid
+flowchart LR
+    HR["host-runtime pods"] -->|9000 / 9001| M["MinIO AIStor"]
+    RR["rr / rr-pi-runner"] -->|9000<br/>rr-artifacts writer| M
+    G["observability-console / Grafana"] -->|9000<br/>rr-artifacts read-only| M
+    MS["ms namespace"] -->|9000<br/>network allowed| M
+    ECO["eco namespace"] -->|9000<br/>network allowed| M
+    M --> B["Argo minio-offsite-backup"]
+    B -->|rclone copy + check| S3["External S3 bucket"]
+~~~
+
 No Flux `source-controller` ingress rule exists. Host Runtime defines no MinIO
 bucket, mirror, or consumer rule for Flux source artifacts.
 

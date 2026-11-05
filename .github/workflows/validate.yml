@@ -12,7 +12,7 @@ jobs:
     name: Organization repository standards
     uses: homel-dev/.github/.github/workflows/repository-ci.yml@148da72598294e771eb9e449c63852a0e6a669ad
     with:
-      standards_ref: 148da72598294e771eb9e449c63852a0e6a669ad
+      standards_ref: main
       enforce_numbered_docs: true
 
   manifests:

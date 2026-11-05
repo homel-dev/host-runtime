@@ -53,6 +53,17 @@ ghcr.io/homel-dev/host-runtime-kex-toolbox:sha-<git-sha>
 The smoke test executes the installed CLI tools from the built image before the
 publish step.
 
+~~~mermaid
+flowchart LR
+    W["GitHub Actions<br/>validate.yml"] --> B["Build toolbox image"]
+    B --> S["Smoke-test installed CLI tools"]
+    S -->|push to main| P["Publish GHCR tags"]
+    P --> G["ghcr.io/homel-dev/<br/>host-runtime-kex-toolbox"]
+    K["External operator shell<br/>kex helper"] -->|pull / invoke| G
+    G --> E["Launcher-owned execution environment"]
+    E --> C["kubectl / helm / flux / yq / mc / diagnostics"]
+~~~
+
 [Back to top](#navigation)
 
 ## 3. Pinned Toolchain
