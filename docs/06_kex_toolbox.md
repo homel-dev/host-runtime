@@ -7,7 +7,7 @@
 
 ## Navigation
 
-**[05_flux_gitops.md](05_flux_gitops.md) ← → [README.md](../README.md)**
+**Previous:** [05_flux_gitops.md](05_flux_gitops.md) | **Next:** [README.md](../README.md)
 
 - [0. Status, Scope, and Authority](#0-status-scope-and-authority)
 - [1. Purpose](#1-purpose)
@@ -29,6 +29,8 @@ this repository MUST NOT be described as a Host Runtime guarantee.
 
 [Back to top](#navigation)
 
+---
+
 ## 1. Purpose
 
 `host-runtime` publishes the generic Kubernetes execution toolbox image used by
@@ -39,6 +41,8 @@ The Dockerfile runs the image as UID/GID `1000:1000` with working directory
 `/work`.
 
 [Back to top](#navigation)
+
+---
 
 ## 2. Image Publication
 
@@ -54,17 +58,19 @@ The smoke test executes the installed CLI tools from the built image before the
 publish step.
 
 ~~~mermaid
-flowchart LR
+flowchart TB
     W["GitHub Actions<br/>validate.yml"] --> B["Build toolbox image"]
     B --> S["Smoke-test installed CLI tools"]
     S -->|push to main| P["Publish GHCR tags"]
     P --> G["ghcr.io/homel-dev/<br/>host-runtime-kex-toolbox"]
-    K["External operator shell<br/>kex helper"] -->|pull / invoke| G
-    G --> E["Launcher-owned execution environment"]
+    G -->|pulled by| K["External operator shell<br/>kex helper"]
+    K -->|creates / invokes| E["Launcher-owned execution environment"]
     E --> C["kubectl / helm / flux / yq / mc / diagnostics"]
 ~~~
 
 [Back to top](#navigation)
+
+---
 
 ## 3. Pinned Toolchain
 
@@ -87,6 +93,8 @@ PostgreSQL/Redis/SQLite clients, editors, and standard Unix diagnostics.
 
 [Back to top](#navigation)
 
+---
+
 ## 4. Launcher Ownership
 
 `host-runtime` intentionally contains no `kex-run.sh`, `kex-deploy.sh`,
@@ -97,6 +105,8 @@ workflow. `scripts/flux-bootstrap.sh` and `scripts/flux-status.sh` explicitly
 fail when the Bash function is unavailable.
 
 [Back to top](#navigation)
+
+---
 
 ## 5. Security Boundary
 
@@ -109,6 +119,8 @@ If the GHCR package is private, the launcher must provide suitable registry
 credentials. Host Runtime does not commit those credentials.
 
 [Back to top](#navigation)
+
+---
 
 ## 6. Closing Statement
 

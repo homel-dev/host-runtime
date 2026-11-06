@@ -7,7 +7,7 @@
 
 ## Navigation
 
-**[README.md](../README.md) → [02_oco_wiring.md](02_oco_wiring.md)**
+**Previous:** [README.md](../README.md) | **Next:** [02_oco_wiring.md](02_oco_wiring.md)
 
 - [0. Status, Scope, and Authority](#0-status-scope-and-authority)
 - [1. Purpose and Ownership](#1-purpose-and-ownership)
@@ -32,6 +32,8 @@ for current runtime behavior.
 
 [Back to top](#navigation)
 
+---
+
 ## 1. Purpose and Ownership
 
 `host-runtime` provides host-level telemetry collection and shared platform
@@ -54,6 +56,8 @@ database.
 
 [Back to top](#navigation)
 
+---
+
 ## 2. Namespace and Runtime Topology
 
 The primary runtime namespace is:
@@ -64,15 +68,16 @@ host-runtime
 
 The root `k8s/kustomization.yml` deploys:
 
-~~~text
-host-runtime
-  alloy
-  node-exporter
-  process-exporter
-  minio
-  minio-offsite-backup CronWorkflow
-  minio-consumers NetworkPolicy
-  oco-consumer dashboard/RBAC
+~~~mermaid
+flowchart TB
+    ROOT["k8s/kustomization.yml"]
+    ROOT --> A["Grafana Alloy"]
+    ROOT --> NE["Node Exporter"]
+    ROOT --> PE["Process Exporter"]
+    ROOT --> M["MinIO AIStor"]
+    ROOT --> B["CronWorkflow: minio-offsite-backup"]
+    ROOT --> NP["NetworkPolicy: minio-consumers"]
+    ROOT --> OCO["OCO dashboard ConfigMap + read RBAC"]
 ~~~
 
 The offsite backup CronWorkflow depends on the shared Argo Workflows controller,
@@ -80,6 +85,8 @@ which is installed from the cluster Flux root and configured to watch
 `host-runtime`.
 
 [Back to top](#navigation)
+
+---
 
 ## 3. Telemetry Boundary
 
@@ -99,6 +106,8 @@ an internal metrics endpoint, but no `prometheus.scrape` component targets it in
 
 [Back to top](#navigation)
 
+---
+
 ## 4. Process Visibility
 
 `process-exporter` groups host processes by configured application families and
@@ -114,6 +123,8 @@ The dashboard focuses on CPU, memory, filesystem, disk, network, load, and
 process pressure.
 
 [Back to top](#navigation)
+
+---
 
 ## 5. Shared Object Storage
 
@@ -133,6 +144,8 @@ See [04_object_storage.md](04_object_storage.md) and
 [../k8s/minio/BACKUP.md](../k8s/minio/BACKUP.md).
 
 [Back to top](#navigation)
+
+---
 
 ## 6. Operational Entry Points
 
@@ -154,6 +167,8 @@ task oco-status
 `task purge` is destructive and requires `HOST_RUNTIME_PURGE=YES`.
 
 [Back to top](#navigation)
+
+---
 
 ## 7. Closing Statement
 

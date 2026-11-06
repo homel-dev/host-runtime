@@ -7,7 +7,7 @@
 
 ## Navigation
 
-**[03_metrics.md](03_metrics.md) ← → [05_flux_gitops.md](05_flux_gitops.md)**
+**Previous:** [03_metrics.md](03_metrics.md) | **Next:** [05_flux_gitops.md](05_flux_gitops.md)
 
 - [0. Status, Scope, and Authority](#0-status-scope-and-authority)
 - [1. Purpose and Placement](#1-purpose-and-placement)
@@ -33,6 +33,8 @@ provisioning tasks, and backup behavior synchronized with `k8s/minio/`,
 
 [Back to top](#navigation)
 
+---
+
 ## 1. Purpose and Placement
 
 `host-runtime` owns a single-node MinIO AIStor object store as a shared platform
@@ -51,6 +53,8 @@ the Console with a NodePort or LoadBalancer.
 
 [Back to top](#navigation)
 
+---
+
 ## 2. Distribution and License
 
 The StatefulSet uses MinIO AIStor in a single-node topology and mounts a license
@@ -65,6 +69,8 @@ Official MinIO documentation:
 - https://docs.min.io/aistor/installation/kubernetes/install/deploy-aistor-on-kubernetes/
 
 [Back to top](#navigation)
+
+---
 
 ## 3. Local Configuration and Bootstrap Secret
 
@@ -97,6 +103,8 @@ Applications MUST NOT use these root credentials.
 
 [Back to top](#navigation)
 
+---
+
 ## 4. Storage and Lifecycle
 
 The MinIO StatefulSet requests one `ReadWriteOnce` PVC of `50Gi` from the
@@ -116,6 +124,8 @@ This is a single-node lab/platform topology, not an HA storage design.
 
 [Back to top](#navigation)
 
+---
+
 ## 5. Consumer Isolation
 
 Applications MUST use dedicated scoped identities rather than MinIO root
@@ -132,12 +142,21 @@ credentials.
 | `eco` | any pod | `9000` |
 
 ~~~mermaid
-flowchart LR
-    HR["host-runtime pods"] -->|9000 / 9001| M["MinIO AIStor"]
-    RR["rr / rr-pi-runner"] -->|9000<br/>rr-artifacts writer| M
-    G["observability-console / Grafana"] -->|9000<br/>rr-artifacts read-only| M
-    MS["ms namespace"] -->|9000<br/>network allowed| M
-    ECO["eco namespace"] -->|9000<br/>network allowed| M
+flowchart TB
+    subgraph C["Allowed MinIO consumers"]
+        direction TB
+        HR["host-runtime pods"]
+        RR["rr / rr-pi-runner"]
+        G["observability-console / Grafana"]
+        MS["ms namespace"]
+        ECO["eco namespace"]
+    end
+
+    HR -->|9000 / 9001| M["MinIO AIStor"]
+    RR -->|9000<br/>rr-artifacts writer| M
+    G -->|9000<br/>rr-artifacts read-only| M
+    MS -->|9000<br/>network allowed| M
+    ECO -->|9000<br/>network allowed| M
     M --> B["Argo minio-offsite-backup"]
     B -->|rclone copy + check| S3["External S3 bucket"]
 ~~~
@@ -149,6 +168,8 @@ Bucket names, IAM policies, and credentials remain consumer contracts unless a
 specific provisioning workflow is implemented in this repository.
 
 [Back to top](#navigation)
+
+---
 
 ## 6. RR Run-Artifact Integration
 
@@ -168,6 +189,8 @@ RR owns artifact semantics and publication. OCO owns presentation. Host Runtime
 owns only the storage/provisioning boundary.
 
 [Back to top](#navigation)
+
+---
 
 ## 7. Offsite Object Copy
 
@@ -198,6 +221,8 @@ bucket configuration, or version history. See
 
 [Back to top](#navigation)
 
+---
+
 ## 8. Observability
 
 The StatefulSet configures `MINIO_PROMETHEUS_AUTH_TYPE=public`, but the current
@@ -209,6 +234,8 @@ be added explicitly to `k8s/observability/alloy/alloy.yml` and documented in
 `03_metrics.md`.
 
 [Back to top](#navigation)
+
+---
 
 ## 9. Operations
 
@@ -231,6 +258,8 @@ task minio:rr-artifacts-status
 persistent host-facing services.
 
 [Back to top](#navigation)
+
+---
 
 ## 10. Closing Statement
 

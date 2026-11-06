@@ -27,8 +27,9 @@ stored in a namespace-local metrics or log backend.
 ## Architecture
 
 ~~~mermaid
-flowchart LR
+flowchart TB
     subgraph HR["host-runtime"]
+        direction TB
         NE["Node Exporter :9100"]
         PE["Process Exporter :9256"]
         PODS["Namespace pod logs / OTLP clients"]
@@ -43,6 +44,7 @@ flowchart LR
     PODS -->|logs / OTLP| A
 
     subgraph OCO["OCO"]
+        direction TB
         OA["Central Alloy"]
         VM["VictoriaMetrics"]
         VL["VictoriaLogs"]

@@ -7,7 +7,7 @@
 
 ## Navigation
 
-**[02_oco_wiring.md](02_oco_wiring.md) ← → [04_object_storage.md](04_object_storage.md)**
+**Previous:** [02_oco_wiring.md](02_oco_wiring.md) | **Next:** [04_object_storage.md](04_object_storage.md)
 
 - [0. Status, Scope, and Authority](#0-status-scope-and-authority)
 - [1. Collection and Storage](#1-collection-and-storage)
@@ -29,6 +29,8 @@ in `k8s/oco-consumer/configmap-dashboard.yml`; scrape targets MUST match
 
 [Back to top](#navigation)
 
+---
+
 ## 1. Collection and Storage
 
 Namespace-local Alloy scrapes Node Exporter, Process Exporter, and Alloy itself,
@@ -42,10 +44,17 @@ VictoriaMetrics in `observability-backend` is the standard metrics backend.
 Host Runtime has no local Prometheus and no metrics PVC.
 
 ~~~mermaid
-flowchart LR
-    NE["Node Exporter<br/>:9100"] -->|15 s scrape| A["Host Runtime Alloy"]
-    PE["Process Exporter<br/>:9256"] -->|15 s scrape| A
-    AS["Alloy self metrics<br/>:12345"] -->|15 s scrape| A
+flowchart TB
+    subgraph SRC["host-runtime metric sources"]
+        direction TB
+        NE["Node Exporter<br/>:9100"]
+        PE["Process Exporter<br/>:9256"]
+        AS["Alloy self metrics<br/>:12345"]
+    end
+
+    NE -->|15 s scrape| A["Host Runtime Alloy"]
+    PE -->|15 s scrape| A
+    AS -->|15 s scrape| A
     A -->|Prometheus remote write<br/>:12347| OA["OCO Alloy"]
     OA --> VM["VictoriaMetrics"]
     G["OCO Grafana<br/>Host Runtime dashboard"] -->|queries| VM
@@ -62,6 +71,8 @@ job="..."
 ~~~
 
 [Back to top](#navigation)
+
+---
 
 ## 2. Node Exporter
 
@@ -92,6 +103,8 @@ The dashboard does not currently use `node_time_seconds` or
 
 [Back to top](#navigation)
 
+---
+
 ## 3. Process Exporter
 
 The current dashboard references:
@@ -108,6 +121,8 @@ imply that Host Runtime deploys the matched applications.
 No swap panels are included in the current dashboard.
 
 [Back to top](#navigation)
+
+---
 
 ## 4. MinIO Metrics State
 
@@ -127,6 +142,8 @@ corresponding documentation/dashboard update.
 
 [Back to top](#navigation)
 
+---
+
 ## 5. Verification
 
 The repository provides direct metric inspection through temporary curl pods:
@@ -140,6 +157,8 @@ Use `task logs-alloy` to inspect scrape/remote-write failures from the local
 collector.
 
 [Back to top](#navigation)
+
+---
 
 ## 6. Closing Statement
 

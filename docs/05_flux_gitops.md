@@ -7,7 +7,7 @@
 
 ## Navigation
 
-**[04_object_storage.md](04_object_storage.md) ← → [06_kex_toolbox.md](06_kex_toolbox.md)**
+**Previous:** [04_object_storage.md](04_object_storage.md) | **Next:** [06_kex_toolbox.md](06_kex_toolbox.md)
 
 - [0. Status, Scope, and Authority](#0-status-scope-and-authority)
 - [1. Scope and Cluster Root](#1-scope-and-cluster-root)
@@ -31,6 +31,8 @@ authentication mode, paths, `prune`, `wait`, and `dependsOn` claims MUST match
 
 [Back to top](#navigation)
 
+---
+
 ## 1. Scope and Cluster Root
 
 `host-runtime` is the Flux bootstrap/control repository for the Minikube
@@ -50,6 +52,8 @@ is the source for `Kustomization/host-runtime`.
 
 [Back to top](#navigation)
 
+---
+
 ## 2. Execution Environment
 
 Flux is bootstrapped with Flux CLI `v2.9.5` through the shell-provided `kex`
@@ -60,6 +64,8 @@ The toolbox contains pinned `kubectl`, Helm, Flux CLI, `yq`, and MinIO AIStor
 Client versions. See [06_kex_toolbox.md](06_kex_toolbox.md).
 
 [Back to top](#navigation)
+
+---
 
 ## 3. GitHub Identity and Authentication
 
@@ -85,6 +91,8 @@ is also referenced by the authenticated secondary `GitRepository` objects for
 
 [Back to top](#navigation)
 
+---
+
 ## 4. Bootstrap
 
 Host Runtime MinIO bootstrap state remains external to Git. Materialize the
@@ -98,7 +106,7 @@ task flux:bootstrap
 
 The wrapper validates the active Kubernetes context before invoking:
 
-~~~text
+~~~bash
 flux check --pre
 flux bootstrap github \
   --owner=homel-dev \
@@ -119,36 +127,67 @@ flux get all -A
 
 [Back to top](#navigation)
 
+---
+
 ## 5. Current Reconciliation Graph
 
 The checked-in cluster root currently declares the following sources and
 Kustomizations.
 
 ~~~mermaid
-flowchart TD
-    HRS["GitRepository flux-system<br/>(host-runtime)"] --> HR["host-runtime<br/>./k8s"]
+flowchart TB
+    subgraph HOST["host-runtime"]
+        direction TB
+        HRS["GitRepository flux-system<br/>(host-runtime)"] --> HR["host-runtime<br/>./k8s"]
+    end
 
-    ES["GitRepository eco"] --> EA["eco-rr-access<br/>./k8s/rr-access"]
-    EA --> E["eco<br/>./k8s"]
+    subgraph ECO["eco"]
+        direction TB
+        ES["GitRepository eco"] --> EA["eco-rr-access<br/>./k8s/rr-access"]
+        EA --> E["eco<br/>./k8s"]
+    end
 
-    LS["GitRepository llm-runtime"] --> LN["llm-runtime-namespace<br/>./k8s/gitops/namespace"]
-    LN --> LO["llm-runtime-observability<br/>./k8s/observability"]
-    LN --> LR["llm-runtime-omniroute<br/>./k8s/gitops/omniroute"]
-    LN --> LC["llm-runtime-mcp-controllers<br/>./k8s/gitops/mcp-controllers"]
-    LO --> LM["llm-runtime-mcp<br/>./k8s/mcp"]
-    LC --> LM
+    subgraph LLM["llm-runtime"]
+        direction TB
+        LS["GitRepository llm-runtime"] --> LN["llm-runtime-namespace<br/>./k8s/gitops/namespace"]
+        LN --> LO["llm-runtime-observability<br/>./k8s/observability"]
+        LN --> LR["llm-runtime-omniroute<br/>./k8s/gitops/omniroute"]
+        LN --> LC["llm-runtime-mcp-controllers<br/>./k8s/gitops/mcp-controllers"]
+        LO --> LM["llm-runtime-mcp<br/>./k8s/mcp"]
+        LC --> LM
+    end
 
-    MS["GitRepository memory-steward"] --> MI["memory-steward-infra<br/>./k8s/infra"]
-    MI --> MR["memory-steward-restore<br/>./k8s/restore"]
-    MR --> MM["memory-steward-migrate<br/>./k8s/migrate"]
-    MM --> MA["memory-steward<br/>./k8s"]
+    subgraph MEMORY["memory-steward"]
+        direction TB
+        MS["GitRepository memory-steward"] --> MI["memory-steward-infra<br/>./k8s/infra"]
+        MI --> MR["memory-steward-restore<br/>./k8s/restore"]
+        MR --> MM["memory-steward-migrate<br/>./k8s/migrate"]
+        MM --> MA["memory-steward<br/>./k8s"]
+    end
 
-    OS["GitRepository oco"] --> OB["oco-backend<br/>./k8s/backend"]
-    OB --> OC["oco-console<br/>./k8s"]
+    subgraph OCO["oco"]
+        direction TB
+        OS["GitRepository oco"] --> OB["oco-backend<br/>./k8s/backend"]
+        OB --> OC["oco-console<br/>./k8s"]
+    end
 
-    RS["GitRepository relentless-rekrow"] --> RR["relentless-rekrow<br/>./rr-pi/k8s"]
+    subgraph RR["relentless-rekrow"]
+        direction TB
+        RS["GitRepository relentless-rekrow"] --> RRD["relentless-rekrow<br/>./rr-pi/k8s"]
+    end
 
-    AR["HelmRepository argo"] --> AW["HelmRelease argo-workflows<br/>chart 2.0.12"]
+    subgraph ARGO["Argo Workflows"]
+        direction TB
+        AR["HelmRepository argo"] --> AW["HelmRelease argo-workflows<br/>chart 2.0.12"]
+    end
+
+    %% Layout-only invisible links keep independent reconciliation lanes vertical.
+    HRS ~~~ ES
+    ES ~~~ LS
+    LS ~~~ MS
+    MS ~~~ OS
+    OS ~~~ RS
+    RS ~~~ AR
 ~~~
 
 | Source | Kustomization(s) and path | Current reconciliation policy |
@@ -174,6 +213,8 @@ CodeGraph controller endpoint declared in the manifests.
 
 [Back to top](#navigation)
 
+---
+
 ## 6. Secrets
 
 Current non-Git state includes:
@@ -191,11 +232,13 @@ and exists solely to document the required keys.
 
 [Back to top](#navigation)
 
+---
+
 ## 7. Operations and Recovery
 
 Use:
 
-~~~text
+~~~bash
 task flux:preflight
 task flux:status
 task flux:reconcile
@@ -217,6 +260,8 @@ The wrapper reruns the official idempotent bootstrap flow and reconnects the
 cluster using the repository's current token-auth configuration.
 
 [Back to top](#navigation)
+
+---
 
 ## 8. Closing Statement
 

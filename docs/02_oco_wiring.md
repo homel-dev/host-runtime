@@ -7,7 +7,7 @@
 
 ## Navigation
 
-**[01_overview.md](01_overview.md) ← → [03_metrics.md](03_metrics.md)**
+**Previous:** [01_overview.md](01_overview.md) | **Next:** [03_metrics.md](03_metrics.md)
 
 - [0. Status, Scope, and Authority](#0-status-scope-and-authority)
 - [1. Telemetry Path](#1-telemetry-path)
@@ -32,6 +32,8 @@ integration.
 
 [Back to top](#navigation)
 
+---
+
 ## 1. Telemetry Path
 
 `host-runtime` runs namespace-local Grafana Alloy because it performs local
@@ -50,25 +52,37 @@ Central Alloy routes these signals to VictoriaMetrics, VictoriaLogs, and Tempo
 in `observability-backend`.
 
 ~~~mermaid
-flowchart LR
+flowchart TB
     subgraph HR["host-runtime"]
+        direction TB
         NE["Node Exporter"] -->|scrape| A["Local Alloy"]
         PE["Process Exporter"] -->|scrape| A
         P["Pod logs / OTLP clients"] --> A
         D["Dashboard ConfigMap"]
     end
 
-    A -->|metrics :12347| OA["OCO Alloy"]
+    subgraph OCO["OCO"]
+        direction TB
+        OA["Central Alloy"]
+        VM["VictoriaMetrics"]
+        VL["VictoriaLogs"]
+        T["Tempo"]
+        G["Grafana"]
+    end
+
+    A -->|metrics :12347| OA
     A -->|logs :12348| OA
     A -->|OTLP :4317| OA
-    OA --> VM["VictoriaMetrics"]
-    OA --> VL["VictoriaLogs"]
-    OA --> T["Tempo"]
-    D -->|Role/RoleBinding discovery| G["OCO Grafana"]
+    OA --> VM
+    OA --> VL
+    OA --> T
+    D -->|Role/RoleBinding discovery| G
     G -->|victoriametrics UID| VM
 ~~~
 
 [Back to top](#navigation)
+
+---
 
 ## 2. Namespace Contract
 
@@ -87,6 +101,8 @@ The local Alloy OTLP Service accepts namespace-local traffic on ports `4317`
 and `4318`. Its NetworkPolicy permits ingress from pods in `host-runtime` only.
 
 [Back to top](#navigation)
+
+---
 
 ## 3. Dashboard Contract
 
@@ -116,6 +132,8 @@ on a Host Runtime Prometheus service.
 
 [Back to top](#navigation)
 
+---
+
 ## 4. Central Log De-duplication
 
 Because Host Runtime tails its own pod logs, central OCO Alloy must not tail the
@@ -127,6 +145,8 @@ This is a cross-repository invariant: Host Runtime declares
 collector exclusion.
 
 [Back to top](#navigation)
+
+---
 
 ## 5. Failure Boundary
 
@@ -146,6 +166,8 @@ for Host Runtime-side inspection. Backend health remains an OCO operational
 responsibility.
 
 [Back to top](#navigation)
+
+---
 
 ## 6. Closing Statement
 
