@@ -135,7 +135,7 @@ The checked-in cluster root currently declares the following sources and
 Kustomizations.
 
 ~~~mermaid
-flowchart TB
+flowchart LR
     subgraph HOST["host-runtime"]
         direction TB
         HRS["GitRepository flux-system<br/>(host-runtime)"] --> HR["host-runtime<br/>./k8s"]
